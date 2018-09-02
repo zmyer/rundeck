@@ -27,6 +27,7 @@ import com.dtolabs.rundeck.plugins.logging.StreamingLogWriterPlugin
 import com.dtolabs.rundeck.server.plugins.services.StreamingLogReaderPluginProviderService
 import com.dtolabs.rundeck.server.plugins.services.StreamingLogWriterPluginProviderService
 import rundeck.Execution
+import rundeck.WorkflowStep
 import rundeck.services.logging.DisablingLogWriter
 import rundeck.services.logging.ExecutionFile
 import rundeck.services.logging.ExecutionFileDeletePolicy
@@ -40,6 +41,7 @@ import rundeck.services.logging.LoglevelThresholdLogWriter
 import rundeck.services.logging.MultiLogWriter
 import rundeck.services.logging.NodeCountingLogWriter
 import rundeck.services.logging.ProducedExecutionFile
+import rundeck.services.logging.StepLabellingStreamingLogWriter
 import rundeck.services.logging.ThresholdLogWriter
 
 import java.nio.charset.Charset
@@ -70,13 +72,23 @@ class LoggingService implements ExecutionFileProducer {
 
     @Override
     boolean isExecutionFileGenerated() {
-        return false
+        false
     }
 
     @Override
     ExecutionFile produceStorageFileForExecution(final Execution e) {
-        File file = getLogFileForExecution(e)
+        File file = getLogFileForExecution e
         new ProducedExecutionFile(localFile: file, fileDeletePolicy: ExecutionFileDeletePolicy.WHEN_RETRIEVABLE)
+    }
+
+    @Override
+    boolean isCheckpointable() {
+        true
+    }
+
+    @Override
+    ExecutionFile produceStorageCheckpointForExecution(final Execution e) {
+        produceStorageFileForExecution e
     }
 
     /**
@@ -97,11 +109,19 @@ class LoggingService implements ExecutionFileProducer {
         List<StreamingLogWriter> plugins = []
         def names = listConfiguredStreamingWriterPluginNames()
         if (names) {
-            HashMap<String, String> jobcontext = ExecutionService.exportContextForExecution(
-                    execution,
-                    grailsLinkGenerator
+            Map<String, Object> jobcontext = new HashMap<>(
+                ExecutionService.exportContextForExecution(execution, grailsLinkGenerator)
             )
+            def labels = [:]
+            execution.workflow?.commands?.eachWithIndex { WorkflowStep entry, int index ->
+                if (entry.description) {
+                    labels["${index + 1}"] = entry.description
+                }
+            }
             log.debug("Configured log writer plugins: ${names}")
+            def confValue = grailsApplication.config?.rundeck?.execution?.logs?.plugins?.streamingWriterStepLabelsEnabled
+            boolean enableLabels = !(confValue in [false, 'false'])
+
             names.each { name ->
                 def result = pluginService.configurePlugin(
                         name,
@@ -116,7 +136,10 @@ class LoggingService implements ExecutionFileProducer {
                 def plugin = result.instance
                 try {
                     plugin.initialize(jobcontext)
-                    plugins << DisablingLogWriter.create(plugin, "StreamingLogWriter(${name})")
+                    plugins << DisablingLogWriter.create(
+                        enableLabels ? new StepLabellingStreamingLogWriter(plugin, labels) : plugin,
+                        "StreamingLogWriter(${name})"
+                    )
                 } catch (Throwable e) {
                     log.error("Failed to initialize plugin ${name}: " + e.message)
                     log.debug("Failed to initialize plugin ${name}: " + e.message, e)
@@ -126,12 +149,15 @@ class LoggingService implements ExecutionFileProducer {
         }
         def outfilepath = null
         if (plugins.size() < 1 || isLocalFileStorageEnabled()) {
-            plugins << logFileStorageService.getLogFileWriterForExecution(
+            plugins << DisablingLogWriter.create(
+                    logFileStorageService.getLogFileWriterForExecution(
                     execution,
                     defaultMeta,
                     threshold?.watcherForType(LoggingThreshold.TOTAL_FILE_SIZE)
+                    ),
+                    "FSStreamingLogWriter(execution:${execution.id})"
             )
-            outfilepath = logFileStorageService.getFileForExecutionFiletype(execution, LOG_FILE_FILETYPE, false)
+            outfilepath = logFileStorageService.getFileForExecutionFiletype(execution, LOG_FILE_FILETYPE, false, false)
         } else {
             log.debug("File log writer disabled for execution ${execution.id}")
         }
@@ -166,7 +192,7 @@ class LoggingService implements ExecutionFileProducer {
      * Return the log file for the execution
      */
     public File getLogFileForExecution(Execution execution) {
-        logFileStorageService.getFileForExecutionFiletype(execution, LOG_FILE_FILETYPE, true)
+        logFileStorageService.getFileForExecutionFiletype(execution, LOG_FILE_FILETYPE, false, false)
     }
 
     String getConfiguredStreamingReaderPluginName() {

@@ -30,7 +30,6 @@ import org.rundeck.storage.api.PathUtil
 import org.rundeck.storage.api.Resource
 import org.rundeck.storage.api.StorageException
 import org.rundeck.storage.impl.ResourceBase
-import org.springframework.dao.OptimisticLockingFailureException
 import rundeck.Storage
 
 import java.util.regex.Pattern
@@ -266,6 +265,9 @@ class DbStorageService implements NamespacedStorage{
 
     @Override
     Resource<ResourceMeta> createResource(String ns,Path path, ResourceMeta content) {
+        if (path.path.contains('../')) {
+            throw StorageException.createException(path, "Invalid path: ${path.path}")
+        }
         if(findResource(ns,path)){
             throw StorageException.createException(path,"Exists")
         }
@@ -302,7 +304,7 @@ class DbStorageService implements NamespacedStorage{
 
                 retry = false
                 return true;
-            } catch (OptimisticLockingFailureException e) {
+            } catch (org.springframework.dao.ConcurrencyFailureException e) {
                 if (!retry) {
                     throw new StorageException("Failed to save content at path ${path}: content was modified", e,
                             StorageException.Event.valueOf(event.toUpperCase()),
@@ -334,11 +336,14 @@ class DbStorageService implements NamespacedStorage{
 
     @Override
     Resource<ResourceMeta> updateResource(String ns,Path path, ResourceMeta content) {
-        def storage = findResource(ns,path)
-        if (!storage) {
-            throw StorageException.createException(path, "Not found")
+        if (path.path.contains('../')) {
+            throw StorageException.updateException(path, "Invalid path: ${path.path}")
         }
-        storage=saveStorage(storage,content,ns,path,'update')
+        def storage = findResource(ns, path)
+        if (!storage) {
+            throw StorageException.updateException(path, "Not found")
+        }
+        storage = saveStorage(storage, content, ns, path, 'update')
 
         return loadResource(storage)
     }

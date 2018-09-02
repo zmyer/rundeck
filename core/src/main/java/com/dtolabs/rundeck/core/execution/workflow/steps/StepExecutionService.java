@@ -24,17 +24,19 @@
 package com.dtolabs.rundeck.core.execution.workflow.steps;
 
 import com.dtolabs.rundeck.core.common.Framework;
+import com.dtolabs.rundeck.core.common.IFramework;
 import com.dtolabs.rundeck.core.common.ProviderService;
 import com.dtolabs.rundeck.core.execution.StepExecutionItem;
 import com.dtolabs.rundeck.core.execution.service.ExecutionServiceException;
-import com.dtolabs.rundeck.core.plugins.ChainedProviderService;
-import com.dtolabs.rundeck.core.plugins.ProviderIdent;
+import com.dtolabs.rundeck.core.execution.service.ProviderLoaderException;
+import com.dtolabs.rundeck.core.plugins.*;
 import com.dtolabs.rundeck.core.plugins.configuration.DescribableService;
 import com.dtolabs.rundeck.core.plugins.configuration.DescribableServiceUtil;
 import com.dtolabs.rundeck.core.plugins.configuration.Description;
 import com.dtolabs.rundeck.plugins.ServiceNameConstants;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 
@@ -43,25 +45,56 @@ import java.util.List;
  *
  * @author Greg Schueler <a href="mailto:greg@dtosolutions.com">greg@dtosolutions.com</a>
  */
-public class StepExecutionService extends ChainedProviderService<StepExecutor> implements DescribableService {
+public class StepExecutionService
+    extends ChainedProviderService<StepExecutor>
+    implements DescribableService,
+               PluggableProviderService<StepExecutor>
+{
     public static final String SERVICE_NAME = ServiceNameConstants.WorkflowStep;
+    private final PluggableProviderService<StepExecutor>
+        pluginStepExecutionService;
 
-    private List<ProviderService<StepExecutor>> serviceList;
-    private BuiltinStepExecutionService builtinStepExecutionService;
+    private List<ProviderService<StepExecutor>>             serviceList;
+    private PresetBaseProviderRegistryService<StepExecutor> builtinStepExecutionService;
+    private PresetBaseProviderRegistryService<StepExecutor> dynamicRegistryService;
 
     public String getName() {
         return SERVICE_NAME;
     }
 
     StepExecutionService(final Framework framework) {
-        this.serviceList = new ArrayList<ProviderService<StepExecutor>>();
-        builtinStepExecutionService = new BuiltinStepExecutionService(SERVICE_NAME, framework);
-        final ProviderService<StepExecutor> pluginStepExecutionService
-            = new PluginStepExecutionService(SERVICE_NAME, framework)
-            .adapter(StepPluginAdapter.CONVERTER);
+        this.serviceList = new ArrayList<>();
+        HashMap<String, Class<? extends StepExecutor>> presets = new HashMap<>();
+        presets.put(NodeDispatchStepExecutor.STEP_EXECUTION_TYPE, NodeDispatchStepExecutor.class);
+        builtinStepExecutionService = new PresetBaseProviderRegistryService<>(presets, framework, false, SERVICE_NAME);
+        dynamicRegistryService =
+            new PresetBaseProviderRegistryService<>(new HashMap<>(), framework, true, SERVICE_NAME);
+        pluginStepExecutionService = new PluginStepExecutionService(SERVICE_NAME, framework)
+        .adapter(StepPluginAdapter.CONVERTER);
 
         serviceList.add(builtinStepExecutionService);
+        serviceList.add(dynamicRegistryService);
         serviceList.add(pluginStepExecutionService);
+    }
+
+    @Override
+    public boolean canLoadWithLoader(final ProviderLoader loader) {
+        return pluginStepExecutionService.canLoadWithLoader(loader);
+    }
+
+    @Override
+    public StepExecutor loadWithLoader(final String providerName, final ProviderLoader loader)
+        throws ProviderLoaderException
+    {
+        return pluginStepExecutionService.loadWithLoader(providerName,loader);
+    }
+
+    @Override
+    public CloseableProvider<StepExecutor> loadCloseableWithLoader(
+        final String providerName, final ProviderLoader loader
+    ) throws ProviderLoaderException
+    {
+        return pluginStepExecutionService.loadCloseableWithLoader(providerName,loader);
     }
 
     @Override
@@ -98,5 +131,12 @@ public class StepExecutionService extends ChainedProviderService<StepExecutor> i
 
     public void registerInstance(String name, StepExecutor object) {
         builtinStepExecutionService.registerInstance(name, object);
+    }
+
+    /**
+     * @return dynamic registry for providers
+     */
+    public ProviderRegistryService<StepExecutor> getProviderRegistryService() {
+        return dynamicRegistryService;
     }
 }

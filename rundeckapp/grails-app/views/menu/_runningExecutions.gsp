@@ -74,12 +74,12 @@
                     <td class="dateStarted date " title="${startedText}: ${enc(attr:execution.dateStarted)}">
                         <span class="timelabel">at:</span>
                         <span class="timeabs"><g:relativeDate atDate="${execution.dateStarted}"/></span>
-                        <em>by</em>
+                        <em><g:message code="by" default="by"/></em>
                         <g:username user="${execution.user}"/>
                     </td>
                 </g:if>
 
-                <td class="runstatus " style="width:200px" colspan="2">
+                <td class="runstatus " style="width:200px" colspan="3">
 
                     <g:if test="${execution.dateCompleted}">
                         <span class="timelabel" title="completed: ${enc(attr:execution.dateCompleted)}">

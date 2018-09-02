@@ -68,7 +68,7 @@
                     <tmpl:nodeFilterLink key="name" value="${resName}"
                                          linkicon="glyphicon glyphicon-circle-arrow-right"/>
                     <span class="nodedesc"></span>
-                    <span class="text-muted ">
+                    <span class="text-primary ">
                         <g:nodeBadgeIcons node="${node}" css="badge"/>
                         ${node.description}
                     </span>
@@ -78,7 +78,7 @@
                         <td  title="Tags" class="nodetags" >
                             <g:if test="${node.tags}">
                                 <span class="nodetags">
-                                    <i class="glyphicon glyphicon-tags text-muted"></i>
+                                    <i class="glyphicon glyphicon-tags text-primary"></i>
                                     <g:each var="tag" in="${node.tags.sort().findAll{!it.startsWith('ui:')}}">
                                         <tmpl:nodeFilterLink key="tags" value="${tag}" linkclass="textbtn tag"/>
                                     </g:each>
@@ -104,7 +104,7 @@
                     <td title="Tags" class="nodetags" >
                         <g:if test="${node.tags}">
                             <span class="nodetags">
-                                <i class="glyphicon glyphicon-tags text-muted"></i>
+                                <i class="glyphicon glyphicon-tags text-primary"></i>
                                 <g:each var="tag" in="${node.tags.sort().findAll{!it.startsWith('ui:')}}">
                                     <tmpl:nodeFilterLink key="tags" value="${tag}" linkclass="textbtn tag"/>
                                 </g:each>
@@ -128,7 +128,7 @@
                         <%
                             nodecontextdata.project=nodedata.project.name
                         %>
-                        <g:set var="remoteUrl" value="${DataContextUtils.replaceDataReferences(node.attributes?.remoteUrl,[node:nodecontextdata])}" />
+                        <g:set var="remoteUrl" value="${DataContextUtils.replaceDataReferencesInString(node.attributes?.remoteUrl,[node:nodecontextdata])}" />
                         <span class="action " title="Edit this node via remote URL..." onclick='doRemoteEdit("${enc(js: node.nodename)}","${enc(js: nodedata.project.name)}","${enc(js: remoteUrl)}");'>Edit&hellip;</span>
                     </g:if>
                     <g:elseif test="${node.attributes?.editUrl}">
@@ -136,7 +136,7 @@
                         <%
                             nodecontextdata.project=nodedata.project.name
                         %>
-                        <g:set var="editUrl" value="${DataContextUtils.replaceDataReferences(node.attributes?.editUrl,[node:nodecontextdata])}" />
+                        <g:set var="editUrl" value="${DataContextUtils.replaceDataReferencesInString(node.attributes?.editUrl,[node:nodecontextdata])}" />
                         <a href="${enc(attr:editUrl)}" target="_blank" title="Opens a link to edit this node at a remote site.">Edit</a>
                     </g:elseif>
 

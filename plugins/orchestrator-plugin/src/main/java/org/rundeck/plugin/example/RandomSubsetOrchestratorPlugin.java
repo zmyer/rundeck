@@ -25,7 +25,13 @@ import com.dtolabs.rundeck.plugins.descriptions.PluginProperty;
 import com.dtolabs.rundeck.plugins.orchestrator.Orchestrator;
 import com.dtolabs.rundeck.plugins.orchestrator.OrchestratorPlugin;
 
+import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Plugin(name = "subset", service = ServiceNameConstants.Orchestrator)
 @PluginDescription(title = "Random Subset", description = "Chooses only a random subset of the target nodes.")
@@ -37,6 +43,42 @@ public class RandomSubsetOrchestratorPlugin implements OrchestratorPlugin {
 
     @Override
     public Orchestrator createOrchestrator(StepExecutionContext context, Collection<INodeEntry> nodes) {
-        return new RandomSubsetOrchestrator(count, context, nodes);
+        String ident = createWFLayerIdent(context);
+        //use the ident as random seed to allow repeatable sequence of random nodes
+        //if this orchestrator config is invoked more than once in the same
+        //workflow layer
+        return new RandomSubsetOrchestrator(count, context, nodes, genSeed(ident));
+    }
+
+    /**
+     * generate random seed from unique ident string
+     * @param ident
+     * @return seed long
+     */
+    public static long genSeed(final String ident) {
+        try {
+            MessageDigest instance = MessageDigest.getInstance("SHA-1");
+            byte[] strbytes = ident.getBytes("UTF-8");
+            byte[] digest = instance.digest(strbytes);
+
+            //use first 8 bytes as a long
+            return ByteBuffer.wrap(digest, 0, Long.BYTES).getLong();
+        } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+            //not random looking
+            return ident.hashCode();
+        }
+    }
+
+
+    public String createWFLayerIdent(final StepExecutionContext context) {
+        //create a string which identifies this execution layer uniquely
+        List<Integer> stepContext = context.getStepContext();
+        String ident = context.getFrameworkProject();
+        if (context.getDataContext().get("job") != null && context.getDataContext().get("job").get("execid") != null) {
+            ident += context.getDataContext().get("job").get("execid");
+        }
+
+        return ident +
+               String.join(",", stepContext.stream().map(Object::toString).collect(Collectors.toList()));
     }
 }

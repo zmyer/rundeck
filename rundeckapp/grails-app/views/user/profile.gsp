@@ -43,61 +43,77 @@
         window.location.href = url + "?lang=" + jQuery("#language").val();
     }
     </script>
+    <g:set var="currentLang" value="${response.locale?.toString() ?: request.locale?.toString()}"/>
     <g:embedJSON
-            data="${[user         : user.login,
-                     roles        : authRoles,
-                     adminAuth    : tokenAdmin,
-                     userTokenAuth: selfToken,
-                     svcTokenAuth : serviceToken,
-                     //grails stores current locale in http session under below key
-                     language     : session[org.springframework.web.servlet.i18n.SessionLocaleResolver.LOCALE_SESSION_ATTRIBUTE_NAME ]
+        data="${[user         : user.login,
+                 roles        : authRoles,
+                 adminAuth    : tokenAdmin,
+                 userTokenAuth: selfToken,
+                 svcTokenAuth : serviceToken,
+                 language     : currentLang
             ]}"
-            id="genPageData"></g:embedJSON>
+        id="genPageData"/>
 </head>
 <body>
-
-<div class="row">
-    <div class="col-sm-12">
-        <h3>
-            <g:link action="profile" params="[login: user.login]">
-                <g:icon name="user"/>
-                ${user.login}
-            </g:link>
-
-            <g:link action="edit"
-                    params="[login: user.login]"
-                    class="small btn btn-link btn-sm"
-                    title="${message(code: 'userController.action.edit.description', args: [user.login])}">
-                <g:icon name="edit"/>
-                <g:message code="button.Edit.label" />
-            </g:link>
-        </h3>
-    </div>
-
-    <div class="col-sm-12">
-        <div class="help-block">
-            <g:message code="userController.page.profile.description" />
+<div class="container-fluid">
+  <div class="row">
+      <div class="col-xs-12">
+        <div class="card">
+          <g:render template="/common/messages"/>
         </div>
-    </div>
+      </div>
+      <div class="col-sm-12">
+          <div class="card">
+              <div class="card-content">
+                <div class="row">
+                    <div class="col-xs-6">
+                    <div class="pull-left">
+                      <g:link action="edit"
+                              params="[login: user.login]"
+                              class="btn btn-sm"
+                              title="${message(code: 'userController.action.edit.description', args: [user.login])}">
+                          <g:icon name="edit"/>
+                          <g:message code="button.Edit.label"/>
+                      </g:link>
+                    </div>
+                  </div>
 
-    <div class="col-sm-12">
-        <span class="pull-right">
-            <label for="language"><g:message code="user.profile.language.label"/></label>
-            <select name="language" id="language" onchange="changeLanguage();">
-                <option value="">English</option>
-                <option value="es_419">Español</option>
-                <option value="zh_cn">简体中文</option>
-            </select>
-        </span>
-    </div>
-</div>
+                    <div class="col-xs-6 form-inline">
+                    <div class="form-group pull-right">
+                        <label for="language" class=" control-label"><g:message
+                            code="user.profile.language.label"/></label>
 
-<div class="pageBody" id="userProfilePage">
-    <g:render template="/common/messages"/>
-    <g:jsonToken id='api_req_tokens' url="${request.forwardURI}"/>
-    <tmpl:user user="${user}" edit="${true}"/>
+
+                        <g:set var="supportedLangs" value="${
+                            [
+                                en_US : 'English',
+                                es_419: 'Español',
+                                fr_FR : 'Français',
+                                zh_CN : '简体中文',
+                            ]
+                        }"/>
+                        <g:select class="form-control" name="language" id="language" onchange="changeLanguage();"
+                                  value="${currentLang}" from="${supportedLangs}" optionKey="key"
+                                  optionValue="value">
+
+                        </g:select>
+
+
+                    </div>
+                  </div>
+                </div>
+
+                  <div class="help-block">
+                      <g:message code="userController.page.profile.description"/>
+                  </div>
+                  <div class="pageBody" id="userProfilePage">
+                      <g:jsonToken id='api_req_tokens' url="${request.forwardURI}"/>
+                      <tmpl:user user="${user}" edit="${true}"/>
+                  </div>
+              </div>
+          </div>
+      </div>
+  </div>
 </div>
 </body>
 </html>
-
-

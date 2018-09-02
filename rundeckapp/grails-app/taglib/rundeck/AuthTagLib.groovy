@@ -56,7 +56,7 @@ class AuthTagLib {
         boolean has=(!attrs.has || attrs.has == "true")
 
         def authContext = frameworkService.getAuthContextForSubjectAndProject(request.subject,attrs.project)
-        def resource = frameworkService.authResourceForJob(attrs.job?.jobName, attrs.job?.groupPath)
+        def resource = frameworkService.authResourceForJob(attrs.job?.jobName, attrs.job?.groupPath, attrs.job?.extid)
 
         def env = Collections.singleton(new Attribute(URI.create(EnvironmentalContext.URI_BASE+"project"), attrs.project))
 
@@ -249,6 +249,7 @@ class AuthTagLib {
     def jobAllowedTest ={attrs,body->
         boolean has=(null==attrs.has || attrs.has == "true")
         boolean auth=false
+        boolean anyCheck = ((null != attrs.any) && (attrs.any in [true, "true"]))
         if(!attrs.action && !attrs.name){
             throw new Exception("action attribute required: " + attrs.action + ": " + attrs.name)
         }
@@ -271,13 +272,17 @@ class AuthTagLib {
         
                 
 
-        def Set resources = [frameworkService.authResourceForJob(attrs.job?.jobName, attrs.job?.groupPath) ]
+        def Set resources = [frameworkService.authResourceForJob(attrs.job?.jobName, attrs.job?.groupPath, attrs.job?.extid) ]
 
         def env = Collections.singleton(new Attribute(URI.create(EnvironmentalContext.URI_BASE +"project"), attrs.job?.project))
 
         def authContext = frameworkService.getAuthContextForSubjectAndProject(request.subject,attrs.job?.project)
         def decisions = authContext.evaluate(resources, tests, env)
         //return true if all decsisions are (has==true) or are not (has!=true) authorized
-        return !(decisions.find {has ^ it.authorized})
+        if (anyCheck) {
+            return decisions.find { has ? it.authorized : !it.authorized }
+        }
+        return !(decisions.find { has ^ it.authorized })
+
     }
 }

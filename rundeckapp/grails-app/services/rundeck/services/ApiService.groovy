@@ -25,12 +25,12 @@ import grails.transaction.Transactional
 import grails.web.JSONBuilder
 import groovy.xml.MarkupBuilder
 import org.apache.commons.lang.RandomStringUtils
-import org.codehaus.groovy.grails.web.converters.exceptions.ConverterException
+import org.grails.web.converters.exceptions.ConverterException
 import org.rundeck.util.Sizes
 import rundeck.AuthToken
 import rundeck.Execution
 import rundeck.User
-import rundeck.filters.ApiRequestFilters
+import com.dtolabs.rundeck.app.api.ApiVersions
 
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -38,7 +38,6 @@ import java.text.SimpleDateFormat
 import java.time.Clock
 
 class ApiService {
-    static transactional = false
     public static final String TEXT_XML_CONTENT_TYPE = 'text/xml'
     public static final String APPLICATION_XML_CONTENT_TYPE = 'application/xml'
     public static final String JSON_CONTENT_TYPE = 'application/json'
@@ -107,7 +106,7 @@ class ApiService {
                 creator: ownerUsername
         )
 
-        if (token.save()) {
+        if (token.save(flush:true)) {
             log.info(
                     "GENERATE TOKEN: ID:${uuid} creator:${ownerUsername} username:${u.login} roles:"
                             + "${token.authRoles} expiration:${expiration}"
@@ -286,7 +285,7 @@ class ApiService {
     def respondOutput(HttpServletResponse response, String contentType, String output) {
         response.setContentType(contentType)
         response.setCharacterEncoding('UTF-8')
-        response.setHeader("X-Rundeck-API-Version",ApiRequestFilters.API_CURRENT_VERSION.toString())
+        response.setHeader("X-Rundeck-API-Version",ApiVersions.API_CURRENT_VERSION.toString())
         def out = response.outputStream
         out << output
         out.flush()
@@ -317,7 +316,7 @@ class ApiService {
     def renderSuccessXml(HttpServletRequest request,HttpServletResponse response, String code, List args) {
         return renderSuccessXmlWrap(request,response) {
             success {
-                message(messageSource.getMessage(code, args as Object[], null))
+                message(messageSource.getMessage(code, args as Object[], code, null))
             }
         }
     }
@@ -333,7 +332,7 @@ class ApiService {
      * @return
      */
     public boolean doWrapXmlResponse(HttpServletRequest request) {
-        if(request.api_version < ApiRequestFilters.V11){
+        if(request.api_version < ApiVersions.V11){
             //require false to disable wrapper
             return !"false".equals(request.getHeader(XML_API_RESPONSE_WRAPPER_HEADER))
         } else{
@@ -401,7 +400,7 @@ class ApiService {
      */
     def renderSuccessXml(Closure recall){
         return renderSuccessXmlUnwrapped {
-            result(success: "true", apiversion: ApiRequestFilters.API_CURRENT_VERSION) {
+            result(success: "true", apiversion: ApiVersions.API_CURRENT_VERSION) {
                 recall.delegate = delegate
                 recall.resolveStrategy=Closure.DELEGATE_FIRST
                 recall()
@@ -594,22 +593,6 @@ class ApiService {
      * @param params list of parameters of which all must be present
      * @return false if requirement is not met, response will already have been made
      */
-    def requireParametersFormat(Map reqparams,HttpServletResponse response,List<String> params){
-        def notfound=params.find{!reqparams[it]}
-        if(notfound){
-            renderErrorFormat(response, [status: HttpServletResponse.SC_BAD_REQUEST,
-                    code: 'api.error.parameter.required', args: [notfound]])
-            return false
-        }
-        return true
-    }
-    /**
-     * Require all specified parameters in the request
-     * @param request
-     * @param response
-     * @param params list of parameters of which all must be present
-     * @return false if requirement is not met, response will already have been made
-     */
     def requireParameters(Map reqparams,HttpServletResponse response,List<String> params){
         def notfound=params.find{!reqparams[it]}
         if(notfound){
@@ -728,36 +711,47 @@ class ApiService {
 
     def renderErrorText(messages, String code=null){
         if (!messages) {
-            return messageSource.getMessage("api.error.unknown", null, null)
+            return messageSource.getMessage("api.error.unknown", null, "api.error.unknown", null)
         }
         if (messages instanceof List) {
             return messages.join("\r\n")
         }else if (messages instanceof Map && messages.message) {
             return messages.message
         } else if (messages instanceof Map && messages.code) {
-            return messageSource.getMessage(messages.code, messages.args ? messages.args as Object[] : null, null)
+            return messageSource.getMessage(
+                messages.code,
+                messages.args ? messages.args as Object[] : null,
+                messages.code,
+                null
+            )
         }
         return messages.toString()
     }
     def renderErrorJson(messages, String code=null){
         def result=[
                 error: true,
-                apiversion: ApiRequestFilters.API_CURRENT_VERSION,
+                apiversion: ApiVersions.API_CURRENT_VERSION,
         ]
-        if (code) {
-            result.errorCode=code
-        }
+        result.errorCode = code ?: 'api.error.unknown'
         if (!messages) {
-            result.'message'=messageSource.getMessage("api.error.unknown", null, null)
+            result.'message' = messageSource.getMessage("api.error.unknown", null, "api.error.unknown", null)
         }
         if (messages instanceof List) {
             result.messages=messages
         } else if (messages instanceof Map && messages.code) {
-            result.message=(messages.message ?: messageSource.getMessage(messages.code, messages.args ? messages.args as Object[] : null, null))
+            result.message = (
+                messages.message ?:
+                messageSource.getMessage(
+                    messages.code,
+                    messages.args ? messages.args as Object[] : null,
+                    messages.code,
+                    null
+                )
+            )
         }else if (messages instanceof Map && messages.message) {
             result.message=messages.message
         }
-        return result.encodeAsJSON().toString()
+        return (result as JSON).toString()
     }
     def renderErrorXml(messages, String code=null, builder=null){
         def writer = new StringWriter()
@@ -768,21 +762,35 @@ class ApiService {
             xml=builder
         }
         xml.with {
-            result(error: "true", apiversion: ApiRequestFilters.API_CURRENT_VERSION) {
-                def errorprops = [:]
+            result(error: "true", apiversion: ApiVersions.API_CURRENT_VERSION) {
+                // REVIEW: disabled by grails3 merge
+//                def errorprops = [:]
+                def errorprops = [code: code ?: 'api.error.unknown']
                 if (code) {
                     errorprops = [code: code]
                 }
                 delegate.'error'(errorprops) {
                     if (!messages) {
-                        delegate.'message'(messageSource.getMessage("api.error.unknown",null,null))
+                        delegate.'message'(
+                            messageSource.getMessage("api.error.unknown", null, "api.error.unknown", null)
+                        )
                     }
                     if (messages instanceof List) {
-                        messages.each {
-                            delegate.'message'(it)
+                        delegate.'messages' {
+                            messages.each {
+                                delegate.'message'(it)
+                            }
                         }
                     }else if(messages instanceof Map && messages.code){
-                        delegate.'message'(messages.message?:messageSource.getMessage(messages.code, messages.args?messages.args as Object[]:null, null))
+                        delegate.'message'(
+                            messages.message ?:
+                            messageSource.getMessage(
+                                messages.code,
+                                messages.args ? messages.args as Object[] : null,
+                                messages.code,
+                                null
+                            )
+                        )
                     }else if(messages instanceof Map && messages.message){
                         delegate.'message'(messages.message)
                     }
@@ -795,7 +803,7 @@ class ApiService {
     }
 
     /**
-     * in Json or XML, render a file as a wrapped strings specified by a 'contents' entry/element
+     * in XML, render a file as a wrapped strings specified by a 'contents' entry/element
      * @param contentString
      * @param request
      * @param response
@@ -803,18 +811,14 @@ class ApiService {
      * @param delegate
      * @return
      */
-    void renderWrappedFileContents(
+    void renderWrappedFileContentsXml(
             String contentString,
             String respFormat,
             delegate
     )
     {
-        if (respFormat=='json') {
-            delegate.contents = contentString
-        }else{
-            delegate.'contents' {
-                mkp.yieldUnescaped("<![CDATA[" + contentString.replaceAll(']]>', ']]]]><![CDATA[>') + "]]>")
-            }
+        delegate.'contents' {
+            mkp.yieldUnescaped("<![CDATA[" + contentString.replaceAll(']]>', ']]]]><![CDATA[>') + "]]>")
         }
     }
 
@@ -826,26 +830,21 @@ class ApiService {
      * @param builder builder
      * @return
      */
-     void jsonRenderDirlist(String path,Closure genpath,Closure genhref,List<String>dirlist,builder){
-        builder.with{
-            delegate.'path'=genpath(path)
-            delegate.'type'='directory'
-            //delegate.'name'= pathName(path)
-            delegate.'href'= genhref(path)
-            delegate.'resources'=array{
-                def builder2=delegate
-                dirlist.each{dirpath->
-                    builder2.element {
-                        delegate.'path'=genpath(dirpath)
-                        delegate.'type'=dirpath.endsWith('/')?'directory':'file'
-                        if(!dirpath.endsWith('/')) {
-                            delegate.'name' = pathName(genpath(dirpath))
-                        }
-                        delegate.'href'= genhref(dirpath)
-                    }
-                }
-            }
-        }
+     Map jsonRenderDirlist(String path,Closure genpath,Closure genhref,List<String>dirlist){
+         def json = [:]
+         json.path = genpath(path)
+         json.type = 'directory'
+         json.href = genhref(path)
+         json.resources = dirlist.collect {dirpath->
+             def e = ['path':genpath(dirpath),
+                      'type':dirpath.endsWith('/')?'directory':'file',
+                      'href': genhref(dirpath)]
+             if(!dirpath.endsWith('/')) {
+                 e.name = pathName(genpath(dirpath))
+             }
+             return e
+         }
+         return json
     }
     /**
      * Render xml response for dir listing
@@ -885,16 +884,15 @@ class ApiService {
         path.lastIndexOf('/')>=0?path.substring(path.lastIndexOf('/') + 1):path
     }
 
-    public void renderJsonAclpolicyValidation(Validation validation, builder){
-        builder.valid = validation.valid
+    Map renderJsonAclpolicyValidation(Validation validation){
+        def json = [:]
+        json.valid = validation.valid
         if(!validation.valid) {
-            builder.'policies' = builder.array {
-                def d=delegate
-                validation.errors.keySet().sort().each { ident ->
-                    builder.'element'(policy: ident, errors: validation.errors[ident])
-                }
+            json.policies = validation.errors.keySet().sort().collect { ident ->
+                [policy: ident, errors: validation.errors[ident]]
             }
         }
+        return json
     }
     public void renderXmlAclpolicyValidation(Validation validation, builder){
         builder.'validation'(valid:validation.valid){
@@ -938,7 +936,7 @@ class ApiService {
                 def href=execdata.href
                 def status=execdata.status
                 def summary=execdata.summary
-                def Execution e = Execution.get(execdata.execution.id)
+                Execution e = execdata.execution
                 execution(
                         /** attributes   **/
                         id: e.id,
@@ -1106,7 +1104,7 @@ class ApiService {
     String apiHrefForJob(def scheduledExecution) {
         return grailsLinkGenerator.link(controller: 'scheduledExecution',
                 id: scheduledExecution.extid,
-                params: [api_version:ApiRequestFilters.API_CURRENT_VERSION],
+                params: [api_version:ApiVersions.API_CURRENT_VERSION],
                 absolute: true)
     }
     String guiHrefForJob(def scheduledExecution) {
@@ -1118,7 +1116,7 @@ class ApiService {
     }
     String apiHrefForExecution(Execution execution) {
         return grailsLinkGenerator.link(controller: 'execution', id: execution.id,
-                params: [api_version: ApiRequestFilters.API_CURRENT_VERSION],
+                params: [api_version: ApiVersions.API_CURRENT_VERSION],
                 absolute: true)
     }
     String guiHrefForExecution(Execution execution) {

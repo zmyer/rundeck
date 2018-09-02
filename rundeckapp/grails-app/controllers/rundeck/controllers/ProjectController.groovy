@@ -22,9 +22,12 @@ import com.dtolabs.rundeck.core.authorization.AuthContext
 import com.dtolabs.rundeck.core.authorization.UserAndRolesAuthContext
 import com.dtolabs.rundeck.core.authorization.Validation
 import com.dtolabs.rundeck.core.common.Framework
+import com.dtolabs.rundeck.core.common.FrameworkResource
 import com.dtolabs.rundeck.core.common.IRundeckProject
 import com.dtolabs.rundeck.server.authorization.AuthConstants
-import rundeck.filters.ApiRequestFilters
+import com.dtolabs.rundeck.app.api.ApiVersions
+import grails.converters.JSON
+import rundeck.Project
 import rundeck.services.ApiService
 import rundeck.services.ArchiveOptions
 import com.dtolabs.rundeck.util.JsonUtil
@@ -62,7 +65,7 @@ class ProjectController extends ControllerBase{
     public def export(ProjectArchiveParams archiveParams){
         if (archiveParams.hasErrors()) {
             flash.errors = archiveParams.errors
-            return redirect(controller: 'menu', action: 'admin', params: [project: params.project])
+            return redirect(controller: 'menu', action: 'projectExport', params: [project: params.project])
         }
         def project=params.project
         if (!project){
@@ -114,11 +117,14 @@ class ProjectController extends ControllerBase{
     public def exportPrepare(ProjectArchiveParams archiveParams){
         if (archiveParams.hasErrors()) {
             flash.errors = archiveParams.errors
-            return redirect(controller: 'menu', action: 'admin', params: [project: params.project])
+            return redirect(controller: 'menu', action: 'projectExport', params: [project: params.project])
         }
         def project=params.project
         if (!project){
             return renderErrorView("Project parameter is required")
+        }
+        if (params.cancel) {
+            return redirect(controller: 'menu', action: 'index', params: [project: params.project])
         }
         Framework framework = frameworkService.getRundeckFramework()
         AuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject,params.project)
@@ -144,6 +150,72 @@ class ProjectController extends ControllerBase{
         def token = projectService.exportProjectToFileAsync(project1, framework, session.user, aclReadAuth, options)
         return redirect(action:'exportWait',params: [token:token,project:archiveParams.project])
     }
+
+    public def exportInstancePrepare(ProjectArchiveParams archiveParams){
+        def error = 0
+        def msg = 'In order to export'
+        if(!params.url){
+            error++
+            msg += ", Server URL"
+        }
+        if(!params.apitoken){
+            error++
+            msg += ", API Token"
+        }
+        if(!params.targetproject){
+
+            msg += ", Target Project"
+            error++
+        }
+        if (error>0) {
+            if(error == 1){
+                msg+=" is required."
+            }else{
+                msg+=" are required."
+            }
+            flash.error = msg
+            return redirect(controller: 'menu', action: 'projectExport', params: [project: params.project])
+        }
+        params.instance = params.url
+        if (archiveParams.hasErrors()) {
+            flash.errors = archiveParams.errors
+            return redirect(controller: 'menu', action: 'projectExport', params: [project: params.project])
+        }
+        def project=params.project
+        if (!project){
+            return renderErrorView("Project parameter is required")
+        }
+        if (params.cancel) {
+            return redirect(controller: 'menu', action: 'index', params: [project: params.project])
+        }
+        Framework framework = frameworkService.getRundeckFramework()
+        AuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject,params.project)
+
+        if (notFoundResponse(frameworkService.existsFrameworkProject(project), 'Project', project)) {
+            return
+        }
+
+        if (unauthorizedResponse(
+                frameworkService.authorizeApplicationResourceAny(authContext,
+                        frameworkService.authResourceForProject(project),
+                        [AuthConstants.ACTION_ADMIN, AuthConstants.ACTION_PROMOTE]),
+                AuthConstants.ACTION_PROMOTE, 'Project',project)) {
+            return
+        }
+        def project1 = frameworkService.getFrameworkProject(project)
+
+        //request token
+        def aclReadAuth=frameworkService.authorizeApplicationResourceAny(authContext,
+                frameworkService.authResourceForProjectAcl(project),
+                [AuthConstants.ACTION_READ, AuthConstants.ACTION_ADMIN])
+        ArchiveOptions options = archiveParams.toArchiveOptions()
+        def token = projectService.exportProjectToInstanceAsync(project1, framework, session.user, aclReadAuth, options
+                ,params.targetproject,params.apitoken,params.url,params.preserveuuid?true:false)
+        return redirect(action:'exportWait',params: [token:token,project:archiveParams.project,instance:params.instance, iproject:params.targetproject])
+
+    }
+
+
     /**
      * poll for archive export process completion using a token, responds in html or json
      * @param token
@@ -151,6 +223,8 @@ class ProjectController extends ControllerBase{
      */
     public def exportWait(){
         def token = params.token
+        def instance = params.instance
+        def iproject = params.iproject
         if (!token) {
             return withFormat {
                 html {
@@ -160,8 +234,8 @@ class ProjectController extends ControllerBase{
                 }
                 json {
                     render(contentType: 'application/json') {
-                        delegate.'token' = token
-                        delegate.'errorMessage' = 'token is required'
+                        delegate.'token' token
+                        delegate.'errorMessage' 'token is required'
                     }
                 }
             }
@@ -178,8 +252,8 @@ class ProjectController extends ControllerBase{
 
                 json{
                     render(contentType:'application/json'){
-                        delegate.'token'=token
-                        delegate.'notFound'=true
+                        delegate.'token' token
+                        delegate.'notFound' true
                     }
                 }
             }
@@ -194,8 +268,30 @@ class ProjectController extends ControllerBase{
                 }
                 json{
                     render(contentType:'application/json'){
-                        delegate.'token'=token
-                        delegate.'errorMessage'=errorMessage
+                        delegate.'token' token
+                        delegate.'errorMessage' errorMessage
+                    }
+                }
+            }
+        }
+        if(instance){
+            def result = projectService.promiseResult(session.user, token)
+            if (result && !result.ok) {
+                def errorList = []
+                errorList.addAll(result.errors?:[])
+                errorList.addAll(result.executionErrors?:[])
+                errorList.addAll(result.aclErrors?:[])
+                return withFormat{
+                    html{
+                        request.errors = errorList
+                        response.status = HttpServletResponse.SC_INTERNAL_SERVER_ERROR
+                        return render(view: "/common/error",model:[:])
+                    }
+                    json{
+                        render(contentType:'application/json'){
+                            delegate.'token' token
+                            delegate.'errors' errorList
+                        }
                     }
                 }
             }
@@ -213,17 +309,23 @@ class ProjectController extends ControllerBase{
                 Streams.copy(instream,response.outputStream,false)
             }
             projectService.releasePromise(session.user,token)
-        }else{
-            def percentage = projectService.promiseSummary(session.user,token).percent()
-            return withFormat{
-                html{
-                    render(view: "/menu/wait",model:[token:token,ready:null!=outfile,percentage:percentage])
+        }else {
+            def percentage = projectService.promiseSummary(session.user, token).percent()
+
+            return withFormat {
+                html {
+                    if(instance) {
+                        render(view: "/menu/wait", model: [token   : token, ready: null != outfile, percentage: percentage,
+                                                           instance: instance, iproject: iproject])
+                    }else{
+                        render(view: "/menu/wait", model: [token   : token, ready: null != outfile, percentage: percentage])
+                    }
                 }
-                json{
-                    render(contentType:'application/json'){
-                        delegate.'token'=token
-                        delegate.ready=null!=outfile
-                        delegate.'percentage'=percentage
+                json {
+                    render(contentType: 'application/json') {
+                        delegate.'token' token
+                        delegate.ready null != outfile
+                        delegate.'percentage' percentage
                     }
                 }
             }
@@ -235,12 +337,16 @@ class ProjectController extends ControllerBase{
         withForm{
         if(archiveParams.hasErrors()){
             flash.errors=archiveParams.errors
-            return redirect(controller: 'menu', action: 'admin', params: [project: params.project])
+            return redirect(controller: 'menu', action: 'projectImport', params: [project: params.project])
         }
         def project = params.project?:params.name
         if (!project) {
             return renderErrorView("Project parameter is required")
         }
+            if (params.cancel) {
+
+                return redirect(controller: 'menu', action: 'index', params: [project: params.project])
+            }
 
         UserAndRolesAuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject,params.project)
 
@@ -279,7 +385,7 @@ class ProjectController extends ControllerBase{
             def file = request.getFile("zipFile")
             if (!file || file.empty) {
                 flash.error = message(code:"no.file.was.uploaded")
-                return redirect(controller: 'menu', action: 'admin', params: [project: project])
+                return redirect(controller: 'menu', action: 'projectImport', params: [project: project])
             }
             Framework framework = frameworkService.getRundeckFramework()
             def result = projectService.importToProject(
@@ -308,11 +414,11 @@ class ProjectController extends ControllerBase{
             if(result.aclerrors){
                 flash.aclerrors=result.aclerrors
             }
-            return redirect(controller: 'menu',action: 'admin',params:[project:project])
+            return redirect(controller: 'menu', action: 'projectImport', params: [project: project])
         }
         }.invalidToken {
             flash.error = g.message(code:'request.error.invalidtoken.message')
-            return redirect(controller: 'menu', action: 'admin', params: [project: params.project])
+            return redirect(controller: 'menu', action: 'projectImport', params: [project: params.project])
         }
     }
 
@@ -320,7 +426,7 @@ class ProjectController extends ControllerBase{
         withForm{
         if (archiveParams.hasErrors()) {
             flash.errors = archiveParams.errors
-            return redirect(controller: 'menu', action: 'admin', params: [project: params.project])
+            return redirect(controller: 'menu', action: 'projectDelete', params: [project: params.project])
         }
         def project = params.project
         if (!project) {
@@ -348,13 +454,13 @@ class ProjectController extends ControllerBase{
         if (!result.success) {
             log.error("Failed to delete project: ${result.error}")
             flash.error = result.error
-            return redirect(controller: 'menu', action: 'admin', params: [project: project])
+            return redirect(controller: 'menu', action: 'projectDelete', params: [project: project])
         }
         flash.message = 'Deleted project: ' + project
         return redirect(controller: 'menu', action: 'home')
         }.invalidToken {
             flash.error= g.message(code: 'request.error.invalidtoken.message')
-            return redirect(controller: 'menu', action: 'admin', params: [project: params.project])
+            return redirect(controller: 'menu', action: 'projectDelete', params: [project: params.project])
         }
     }
 
@@ -366,12 +472,17 @@ class ProjectController extends ControllerBase{
      * @param vers api version requested
      */
     private def renderApiProjectXml (def pject, delegate, hasConfigAuth=false, vers=1){
-        Map data = basicProjectDetails(pject)
-        def pmap = vers < ApiRequestFilters.V11 ? [:] : [url: data.url]
+        Map data = basicProjectDetails(pject,vers)
+        def pmap = vers < ApiVersions.V11 ? [:] : [url: data.url]
         delegate.'project'(pmap) {
             name(data.name)
             description(data.description)
-            if (vers < ApiRequestFilters.V11) {
+            if (vers >= ApiVersions.V26) {
+                if (pject.hasProperty("project.label")) {
+                    label(data.label)
+                }
+            }
+            if (vers < ApiVersions.V11) {
                 if (pject.hasProperty("project.resources.url")) {
                     resources {
                         providerURL(pject.getProperty("project.resources.url"))
@@ -403,25 +514,35 @@ class ProjectController extends ControllerBase{
      * @param hasConfigAuth true if 'configure' action is allowed
      * @param vers api version requested
      */
-    private def renderApiProjectJson (def pject, delegate, hasConfigAuth=false, vers=1){
-        Map data=basicProjectDetails(pject)
-        delegate.url = data.url
-        delegate.name = data.name
-        delegate.description = data.description
+    private def renderApiProjectJson (def pject, hasConfigAuth=false, vers=1){
+        Map data=basicProjectDetails(pject,vers)
+        Map json = [url: data.url, name: data.name, description: data.description]
+        if(data.label){
+            json.label = data.label
+        }
         def ctrl=this
         if(hasConfigAuth){
-            delegate.config {
-                ctrl.renderApiProjectConfigJson(pject,delegate)
-            }
+            json.config = frameworkService.loadProjectProperties(pject)
         }
+        json
     }
 
-    private Map basicProjectDetails(def pject) {
-        [
-                url:generateProjectApiUrl(pject.name),
-                name:pject.name,
-                description : pject.hasProperty('project.description') ? pject.getProperty('project.description') : ''
-        ]
+    private Map basicProjectDetails(def pject, def version) {
+        if(version>=ApiVersions.V26){
+            [
+                    url:generateProjectApiUrl(pject.name),
+                    name:pject.name,
+                    description: pject.getProjectProperties()?.get("project.description")?:'',
+                    label: pject.getProjectProperties()?.get("project.label")?:''
+            ]
+        }else{
+            [
+                    url:generateProjectApiUrl(pject.name),
+                    name:pject.name,
+                    description: pject.getProjectProperties()?.get("project.description")?:''
+            ]
+        }
+
     }
 
     /**
@@ -429,10 +550,8 @@ class ProjectController extends ControllerBase{
      * @param pject framework project object
      * @param delegate builder delegate for response
      */
-    private def renderApiProjectConfigJson (def pject, delegate){
-        frameworkService.loadProjectProperties(pject).each { k, v ->
-            delegate."${k}" = v
-        }
+    private def renderApiProjectConfigJson (def pject){
+        frameworkService.loadProjectProperties(pject)
     }
 
 
@@ -442,7 +561,7 @@ class ProjectController extends ControllerBase{
      * @return
      */
     private String generateProjectApiUrl(String projectName) {
-        g.createLink(absolute: true, uri: "/api/${ApiRequestFilters.API_CURRENT_VERSION}/project/${projectName}")
+        g.createLink(absolute: true, uri: "/api/${ApiVersions.API_CURRENT_VERSION}/project/${projectName}")
     }
 
     /**
@@ -467,13 +586,13 @@ class ProjectController extends ControllerBase{
                 }
             }
             json{
-                return render(contentType: 'application/json'){
-                        def builder = delegate
-                        projlist.sort { a, b -> a.name <=> b.name }.each { pject ->
-                            //don't include config data
-                            builder.'element'(basicProjectDetails(pject))
-                        }
+                List details = []
+                projlist.sort { a, b -> a.name <=> b.name }.each { pject ->
+                    //don't include config data
+                    details.add(basicProjectDetails(pject,request.api_version))
                 }
+
+                render details as JSON
             }
         }
 
@@ -511,7 +630,7 @@ class ProjectController extends ControllerBase{
             xml{
 
                 apiService.renderSuccessXml(request, response) {
-                    if(request.api_version<ApiRequestFilters.V11){
+                    if(request.api_version<ApiVersions.V11){
                         delegate.'projects'(count: 1) {
                             renderApiProjectXml(pject, delegate, configAuth, request.api_version)
                         }
@@ -521,16 +640,14 @@ class ProjectController extends ControllerBase{
                 }
             }
             json{
-                return render(contentType: 'application/json'){
-                    ctrl.renderApiProjectJson(pject, delegate, configAuth, request.api_version)
-                }
+                render renderApiProjectJson(pject, configAuth, request.api_version) as JSON
             }
         }
     }
 
 
     def apiProjectCreate() {
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V11)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V11)) {
             return
         }
         //allow Accept: header, but default to the request format
@@ -604,6 +721,14 @@ class ProjectController extends ControllerBase{
                             args: ["Project 'name' is required"],
                             format: respFormat
                     ])
+        } else if (!(project =~ FrameworkResource.VALID_RESOURCE_NAME_REGEX)) {
+            return apiService.renderErrorFormat(response,
+                    [
+                            status: HttpServletResponse.SC_BAD_REQUEST,
+                            code: "project.name.can.only.contain.these.characters",
+                            args: [],
+                            format: respFormat
+                    ])
         }
         def exists = frameworkService.existsFrameworkProject(project)
         if (exists) {
@@ -628,15 +753,14 @@ class ProjectController extends ControllerBase{
                 }
                 break
             case 'json':
-                render(status: HttpServletResponse.SC_CREATED, contentType: 'application/json') {
-                    renderApiProjectJson(proj, delegate, true, request.api_version)
-                }
+                response.status = HttpServletResponse.SC_CREATED
+                render renderApiProjectJson(proj, true, request.api_version) as JSON
                 break
         }
     }
 
     def apiProjectDelete(){
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V11)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V11)) {
             return
         }
         String project = params.project
@@ -677,6 +801,7 @@ class ProjectController extends ControllerBase{
             return apiService.renderErrorFormat(response,
                     [
                             status: HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                            code: "api.error.unknown",
                             message: result.error,
                     ])
         }
@@ -690,7 +815,7 @@ class ProjectController extends ControllerBase{
      * @return FrameworkProject for the project
      */
     private def validateProjectConfigApiRequest(String action){
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V11)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V11)) {
             return
         }
         String project = params.project
@@ -734,7 +859,7 @@ class ProjectController extends ControllerBase{
      * @return FrameworkProject for the project
      */
     private def validateProjectAclApiRequest(String action){
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V11)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V11)) {
             return
         }
         String project = params.project
@@ -792,9 +917,7 @@ class ProjectController extends ControllerBase{
                 }
                 break
             case 'json':
-                render(contentType: 'application/json') {
-                    renderApiProjectConfigJson(proj, delegate)
-                }
+                render renderApiProjectConfigJson(proj) as JSON
                 break
         }
     }
@@ -802,7 +925,7 @@ class ProjectController extends ControllerBase{
      * /api/14/project/NAME/acl/* endpoint
      */
     def apiProjectAcls() {
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V14)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V14)) {
             return
         }
 
@@ -905,9 +1028,7 @@ class ProjectController extends ControllerBase{
             response.status = HttpServletResponse.SC_BAD_REQUEST
             return withFormat{
                 def j={
-                    render(contentType:'application/json'){
-                        apiService.renderJsonAclpolicyValidation(validation,delegate)
-                    }
+                    render apiService.renderJsonAclpolicyValidation(validation) as JSON
                 }
                 xml{
                     render(contentType: 'application/xml'){
@@ -932,13 +1053,12 @@ class ProjectController extends ControllerBase{
             project.loadFileResource(projectFilePath,baos)
             withFormat{
                 json{
-                    render(contentType:'application/json'){
-                        apiService.renderWrappedFileContents(baos.toString(),respFormat,delegate)
-                    }
+                    def content = [contents: baos.toString()]
+                    render content as JSON
                 }
                 xml{
                     render(contentType: 'application/xml'){
-                        apiService.renderWrappedFileContents(baos.toString(),respFormat,delegate)
+                        apiService.renderWrappedFileContentsXml(baos.toString(),respFormat,delegate)
                     }
 
                 }
@@ -949,7 +1069,7 @@ class ProjectController extends ControllerBase{
 
 
     private def renderProjectAclHref(String project,String path) {
-        createLink(absolute: true, uri: "/api/${ApiRequestFilters.API_CURRENT_VERSION}/project/$project/acl/$path")
+        createLink(absolute: true, uri: "/api/${ApiVersions.API_CURRENT_VERSION}/project/$project/acl/$path")
     }
 
     /**
@@ -973,13 +1093,12 @@ class ProjectController extends ControllerBase{
                 project.loadFileResource(projectFilePath,baos)
                 withFormat{
                     json{
-                        render(contentType:'application/json'){
-                            apiService.renderWrappedFileContents(baos.toString(),'json',delegate)
-                        }
+                        def content = [contents: baos.toString()]
+                        render content as JSON
                     }
                     xml{
                         render(contentType: 'application/xml'){
-                            apiService.renderWrappedFileContents(baos.toString(),'xml',delegate)
+                            apiService.renderWrappedFileContentsXml(baos.toString(),'xml',delegate)
                         }
 
                     }
@@ -998,15 +1117,12 @@ class ProjectController extends ControllerBase{
             }
             withFormat{
                 json{
-                    render(contentType:'application/json'){
-                        apiService.jsonRenderDirlist(
+                    render apiService.jsonRenderDirlist(
                                 projectFilePath,
                                 {p->apiService.pathRmPrefix(p,rmprefix)},
                                 {p->renderProjectAclHref(project.getName(),apiService.pathRmPrefix(p,rmprefix))},
-                                list,
-                                delegate
-                        )
-                    }
+                                list
+                        ) as JSON
                 }
                 xml{
                     render(contentType: 'application/xml'){
@@ -1056,7 +1172,7 @@ class ProjectController extends ControllerBase{
         render(status: HttpServletResponse.SC_NO_CONTENT)
     }
     def apiProjectFilePut() {
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V13)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V13)) {
             return
         }
         def project = validateProjectConfigApiRequest(AuthConstants.ACTION_CONFIGURE)
@@ -1138,9 +1254,8 @@ class ProjectController extends ControllerBase{
     )
     {
         if (respFormat=='json') {
-            render(contentType: 'application/json') {
-                contents = contentString
-            }
+            def jsonContent = [contents: contentString]
+            render jsonContent as JSON
         }else{
             apiService.renderSuccessXml(request, response) {
                 delegate.'contents' {
@@ -1150,7 +1265,7 @@ class ProjectController extends ControllerBase{
         }
     }
     def apiProjectFileGet() {
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V13)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V13)) {
             return
         }
         def project = validateProjectConfigApiRequest(AuthConstants.ACTION_CONFIGURE)
@@ -1189,7 +1304,7 @@ class ProjectController extends ControllerBase{
         }
     }
     def apiProjectFileDelete() {
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V13)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V13)) {
             return
         }
         def project = validateProjectConfigApiRequest(AuthConstants.ACTION_CONFIGURE)
@@ -1268,7 +1383,10 @@ class ProjectController extends ControllerBase{
 
         switch (respFormat) {
             case 'text':
-                render(contentType: 'text/plain',text: project.propertyFile.text)
+                response.setContentType("text/plain")
+                def props=project.getProjectProperties() as Properties
+                props.store(response.outputStream,request.forwardURI)
+                response.outputStream.close()
                 break
             case 'xml':
                 apiService.renderSuccessXml(request, response) {
@@ -1276,9 +1394,7 @@ class ProjectController extends ControllerBase{
                 }
                 break
             case 'json':
-                render(contentType: 'application/json') {
-                    renderApiProjectConfigJson(project, delegate)
-                }
+                render renderApiProjectConfigJson(project) as JSON
                 break
         }
 
@@ -1288,31 +1404,31 @@ class ProjectController extends ControllerBase{
         if (!project) {
             return
         }
-        def key = apiService.restoreUriPath(request, params.keypath)
+        def key_ = apiService.restoreUriPath(request, params.keypath)
         def respFormat = apiService.extractResponseFormat(request, response, ['xml', 'json','text'],'text')
         def properties = frameworkService.loadProjectProperties(project)
-        if(null==properties.get(key)){
+        if(null==properties.get(key_)){
             return apiService.renderErrorFormat(response,[
                     status:HttpServletResponse.SC_NOT_FOUND,
                     code: 'api.error.item.doesnotexist',
-                    args:['property',key],
+                    args:['property',key_],
                     format:respFormat
             ])
         }
-        def value = properties.get(key)
+        def value_ = properties.get(key_)
         switch (respFormat) {
             case 'text':
-                render (contentType: 'text/plain', text: value)
+                render (contentType: 'text/plain', text: value_)
                 break
             case 'xml':
                 apiService.renderSuccessXml(request, response) {
-                    property(key:key,value:value)
+                    property(key:key_,value:value_)
                 }
                 break
             case 'json':
                 render(contentType: 'application/json') {
-                    delegate.'key'=key
-                    delegate.'value'= value
+                    key key_
+                    value value_
                 }
                 break
         }
@@ -1322,25 +1438,25 @@ class ProjectController extends ControllerBase{
         if (!project) {
             return
         }
-        def key = apiService.restoreUriPath(request, params.keypath)
+        def key_ = apiService.restoreUriPath(request, params.keypath)
         def respFormat = apiService.extractResponseFormat(request, response, ['xml', 'json', 'text'])
-        def value=null
+        def value_=null
         if(request.format in ['text']){
-           value = request.inputStream.text
+           value_ = request.inputStream.text
         }else{
             def succeeded = apiService.parseJsonXmlWith(request,response,[
                     xml:{xml->
-                        value = xml?.'@value'?.text()
+                        value_ = xml?.'@value'?.text()
                     },
                     json:{json->
-                        value = json?.value
+                        value_ = json?.value
                     }
             ])
             if(!succeeded){
                 return
             }
         }
-        if(!value){
+        if(!value_){
             return apiService.renderErrorFormat(response,[
                     status:HttpServletResponse.SC_BAD_REQUEST,
                     code:'api.error.invalid.request',
@@ -1349,7 +1465,7 @@ class ProjectController extends ControllerBase{
             ])
         }
 
-        def result=frameworkService.updateFrameworkProjectConfig(project.name,new Properties([(key): value]),null)
+        def result=frameworkService.updateFrameworkProjectConfig(project.name,new Properties([(key_): value_]),null)
         if(!result.success){
             return apiService.renderErrorFormat(response, [
                     status: HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
@@ -1358,7 +1474,7 @@ class ProjectController extends ControllerBase{
             ])
         }
         def properties = frameworkService.loadProjectProperties(project)
-        def resultValue= properties.get(key)
+        def resultValue= properties.get(key_)
 
         switch (respFormat) {
             case 'text':
@@ -1366,13 +1482,13 @@ class ProjectController extends ControllerBase{
                 break
             case 'xml':
                 apiService.renderSuccessXml(request, response) {
-                    property(key: key, value: resultValue)
+                    property(key: key_, value: resultValue)
                 }
                 break
             case 'json':
                 render(contentType: 'application/json') {
-                    delegate.'key' = key
-                    delegate.'value' = resultValue
+                    key key_
+                    value value_
                 }
                 break
         }
@@ -1412,7 +1528,7 @@ class ProjectController extends ControllerBase{
             )
         }
         if (params.async) {
-            if (!apiService.requireVersion(request, response, ApiRequestFilters.V19)) {
+            if (!apiService.requireVersion(request, response, ApiVersions.V19)) {
                 return
             }
         }
@@ -1428,7 +1544,7 @@ class ProjectController extends ControllerBase{
         if (params.executionIds) {
             options = new ArchiveOptions(all: false, executionsOnly: true)
             options.parseExecutionsIds(params.executionIds)
-        } else if (request.api_version >= ApiRequestFilters.V19) {
+        } else if (request.api_version >= ApiVersions.V19) {
             options = archiveParams.toArchiveOptions()
         } else {
             options = new ArchiveOptions(all: true)
@@ -1467,7 +1583,7 @@ class ProjectController extends ControllerBase{
 
     def apiProjectExportAsyncStatus() {
         def token = params.token
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V19)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V19)) {
             return
         }
         if (!apiService.requireParameters(params, response, ['token'])) {
@@ -1499,7 +1615,7 @@ class ProjectController extends ControllerBase{
 
     def apiProjectExportAsyncDownload() {
         def token = params.token
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V19)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V19)) {
             return
         }
         if (!apiService.requireParameters(params, response, ['token'])) {
@@ -1605,19 +1721,19 @@ class ProjectController extends ControllerBase{
         switch (respFormat) {
             case 'json':
                 render(contentType: 'application/json'){
-                    import_status=result.success?'successful':'failed'
-                    successful=result.success
+                    import_status result.success?'successful':'failed'
+                    successful result.success
                     if (!result.success) {
                         //list errors
-                        delegate.'errors'=result.joberrors
+                        errors result.joberrors
                     }
 
                     if(result.execerrors){
-                        delegate.'execution_errors'=result.execerrors
+                        execution_errors result.execerrors
                     }
 
                     if(result.aclerrors){
-                        delegate.'acl_errors'=result.aclerrors
+                        acl_errors result.aclerrors
                     }
                 }
                 break;

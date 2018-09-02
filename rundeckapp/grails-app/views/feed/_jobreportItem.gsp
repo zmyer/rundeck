@@ -64,7 +64,7 @@
                 &raquo;${foundJob.groupPath ? foundJob.groupPath+'/':''}${foundJob.jobName}&laquo;
             </g:if>
             <g:else>
-                <span class="text-muted">(<g:message
+                <span class="text-primary">(<g:message
                         code="domain.ScheduledExecution.title"/> ID <g:enc>${rpt.jcJobId}</g:enc> has been deleted)</span>
             </g:else>
 
@@ -99,13 +99,13 @@
         %{--</g:unless>--}%
             <span title="<g:relativeDate atDate='${rpt?.dateStarted}'/> to <g:relativeDate
                     atDate='${rpt?.dateCompleted}'/> ">
-                in <g:relativeDate end="${rpt?.dateCompleted}" start="${rpt?.dateStarted}"/>
+                <g:message code="in.of" default="in"/> <g:relativeDate end="${rpt?.dateCompleted}" start="${rpt?.dateStarted}"/>
             </span>
         </g:if>
     </span>
 
     <span style="white-space: nowrap">
-        <em>by</em>
+        <em><g:message code="by" default="by"/></em>
         <g:username user="${rpt?.author}"/>
     </span>
 

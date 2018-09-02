@@ -75,6 +75,8 @@ public class AclTool extends BaseTool {
     public static final String PROJECT_ACL_LONG_OPT = "projectacl";
     public static final String JOB_OPT = "j";
     public static final String JOB_LONG_OPT = "job";
+    public static final String JOB_UUID_OPT = "I";
+    public static final String JOB_UUID_LONG_OPT = "jobUuid";
     public static final String CONTEXT_OPT = "c";
     public static final String CONTEXT_LONG_OPT = "context";
     public static final String ADHOC_OPT = "A";
@@ -236,6 +238,7 @@ public class AclTool extends BaseTool {
     private String argProject;
     private String argProjectAcl;
     private String argProjectJob;
+    private String argProjectJobUUID;
     private String argProjectNode;
     private String argTags;
     private List<String> tagsSet;
@@ -335,6 +338,15 @@ public class AclTool extends BaseTool {
                                          "Job group/name. (project context)"
                                  )
                                  .create(JOB_OPT)
+            );
+            options.addOption(
+                    OptionBuilder.withArgName("uuid")
+                            .withLongOpt(JOB_UUID_LONG_OPT)
+                            .hasArg()
+                            .withDescription(
+                                    "Job uuid. (project context)"
+                            )
+                            .create(JOB_UUID_OPT)
             );
             options.addOption(
                     OptionBuilder.withArgName("application | project")
@@ -458,6 +470,9 @@ public class AclTool extends BaseTool {
             }
             if (cli.hasOption(JOB_OPT)) {
                 argProjectJob = cli.getOptionValue(JOB_OPT);
+            }
+            if (cli.hasOption(JOB_UUID_OPT)) {
+                argProjectJobUUID = cli.getOptionValue(JOB_UUID_OPT);
             }
             if (cli.hasOption(CONTEXT_OPT)) {
                 argContext = Context.valueOf(cli.getOptionValue(CONTEXT_OPT).toLowerCase());
@@ -686,8 +701,18 @@ public class AclTool extends BaseTool {
                     new HashSet<>(projectJobActions),
                     projectEnv
             );
+        }else if(null!=argProjectJobUUID) {
+            Map<String,Object> resourceMap = createProjectJobUUIDResource();
+            logDecisions(
+                    "Job UUID\""+argProjectJobUUID+"\"",
+                    authorization,
+                    subject,
+                    resources(resourceMap),
+                    new HashSet<>(projectJobActions),
+                    projectEnv
+            );
         }else{
-            log("\n(No job (-j) specified, skipping Project context actions for a specific job.)\n");
+            log("\n(No job name(-j) or uuid (-I) specified, skipping Project context actions for a specific job.)\n");
         }
         //node
 
@@ -933,6 +958,7 @@ public class AclTool extends BaseTool {
     static final List<String> projectJobActions =
             Arrays.asList(
                     ACLConstants.ACTION_READ,
+                    ACLConstants.ACTION_VIEW,
                     ACLConstants.ACTION_UPDATE,
                     ACLConstants.ACTION_DELETE,
                     ACLConstants.ACTION_RUN,
@@ -951,6 +977,7 @@ public class AclTool extends BaseTool {
     static final List<String> projectAdhocActions =
             Arrays.asList(
                     ACLConstants.ACTION_READ,
+                    ACLConstants.ACTION_VIEW,
                     ACLConstants.ACTION_RUN,
                     ACLConstants.ACTION_RUNAS,
                     ACLConstants.ACTION_KILL,
@@ -974,7 +1001,7 @@ public class AclTool extends BaseTool {
 
     static {
         projResAttrsByType = new HashMap<>();
-        projResAttrsByType.put(ACLConstants.TYPE_JOB, Arrays.asList("group", "name"));
+        projResAttrsByType.put(ACLConstants.TYPE_JOB, Arrays.asList("group", "name", "uuid"));
         projResAttrsByType.put(ACLConstants.TYPE_ADHOC, new ArrayList<String>());
         List<String> nodeAttributeNames = Arrays.asList(
                 "nodename",
@@ -1076,6 +1103,8 @@ public class AclTool extends BaseTool {
             resourceMap = createStorageResource();
         } else if (argContext == Context.project && argProjectJob != null) {
             resourceMap = createProjectJobResource();
+        } else if (argContext == Context.project && argProjectJobUUID != null) {
+            resourceMap = createProjectJobUUIDResource();
         } else if (argContext == Context.project && (argProjectNode != null || argTags != null)) {
             resourceMap = createProjectNodeResource();
         } else if (argContext == Context.project && argProjectAdhoc) {
@@ -1227,7 +1256,7 @@ public class AclTool extends BaseTool {
         } else if (argContext == Context.project && argGenericType != null) {
             //actions for job
             possibleActions.addAll(projKindActionsByType.get(argGenericType.toLowerCase()));
-        } else if (argContext == Context.project && argProjectJob != null) {
+        } else if (argContext == Context.project && (argProjectJob != null || argProjectJobUUID != null)) {
             //actions for job
             possibleActions.addAll(projectJobActions);
         } else if (argContext == Context.project && argProjectAdhoc) {
@@ -1325,6 +1354,13 @@ public class AclTool extends BaseTool {
         return resourceMap;
     }
 
+    private Map<String, Object> createProjectJobUUIDResource() {
+        final Map<String, Object> resourceMap;HashMap<String, Object> res = new HashMap<>();
+        res.put("uuid", argProjectJobUUID);
+        resourceMap = AuthorizationUtil.resourceRule(ACLConstants.TYPE_JOB, res);
+        return resourceMap;
+    }
+    
     private Map<String, Object> createProjectAdhocResource() {
         return AuthorizationUtil.resourceRule(ACLConstants.TYPE_ADHOC, new HashMap<String, Object>());
     }
@@ -1397,22 +1433,23 @@ public class AclTool extends BaseTool {
 
     private Validation validatePolicies() throws CLIToolOptionsException {
         final Validation validation;
+        ValidationSet validationSet = new ValidationSet();
         if (null != argFile) {
             if(!argFile.isFile()) {
                 throw new CLIToolOptionsException("File: " + argFile + ", does not exist or is not a file");
             }
-            validation = YamlProvider.validate(YamlProvider.sourceFromFile(argFile));
+            validation = YamlProvider.validate(YamlProvider.sourceFromFile(argFile, validationSet), validationSet);
         } else if (null != argDir) {
             if(!argDir.isDirectory()) {
                 throw new CLIToolOptionsException("File: " + argDir + ", does not exist or is not a directory");
             }
-            validation = YamlProvider.validate(YamlProvider.asSources(argDir));
+            validation = YamlProvider.validate(YamlProvider.asSources(argDir), validationSet);
         } else if (null != configDir) {
             File directory = new File(configDir);
             if(!directory.isDirectory()) {
                 throw new CLIToolOptionsException("File: " + directory + ", does not exist or is not a directory");
             }
-            validation = YamlProvider.validate(YamlProvider.asSources(directory));
+            validation = YamlProvider.validate(YamlProvider.asSources(directory), validationSet);
         } else {
             throw new CLIToolOptionsException("-f or -d are required");
         }
@@ -1921,6 +1958,7 @@ public class AclTool extends BaseTool {
     class ACLConstants {
         public static final String ACTION_CREATE = "create";
         public static final String ACTION_READ = "read";
+        public static final String ACTION_VIEW = "view";
         public static final String ACTION_UPDATE = "update";
         public static final String ACTION_DELETE = "delete";
         public static final String ACTION_RUN = "run";

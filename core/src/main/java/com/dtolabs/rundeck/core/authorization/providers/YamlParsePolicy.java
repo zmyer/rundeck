@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Rundeck, Inc. (http://rundeck.com)
+ * Copyright 2018 Rundeck, Inc. (http://rundeck.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import com.dtolabs.rundeck.core.authorization.providers.yaml.model.ACLPolicyDoc;
 import com.dtolabs.rundeck.core.authorization.providers.yaml.model.YamlPolicyDocConstructor;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.ConstructorException;
+import org.yaml.snakeyaml.error.MarkedYAMLException;
 import org.yaml.snakeyaml.error.YAMLException;
 
 import java.io.IOException;
@@ -28,6 +29,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
@@ -356,6 +358,19 @@ public class YamlParsePolicy implements Policy {
                                        })
                                        .collect(Collectors.toList());
 
+        //resource should not have null entries
+        for (Map.Entry<String, Object> stringObjectEntry : resource.entrySet()) {
+            if(stringObjectEntry.getValue()==null){
+
+                throw new AclPolicySyntaxException("Type rule 'for: { " +
+                        type +
+                        ": [...] }\' entry at index [" +
+                        typeIndex +
+                        "] Section " +
+                        "'" + name + ":' value for key: '" + stringObjectEntry.getKey() + "' cannot be null");
+            }
+        }
+
         if (collect.size() > 0) {
             throw new AclPolicySyntaxException("Type rule 'for: { " +
                                                type +
@@ -446,6 +461,11 @@ public class YamlParsePolicy implements Policy {
     @Override
     public Set<String> getGroups() {
         return groups;
+    }
+
+    @Override
+    public String getDescription() {
+        return policyDoc.getDescription();
     }
 
     @Override
@@ -594,75 +614,89 @@ public class YamlParsePolicy implements Policy {
 
     }
 
+    /**
+     *
+     * @param iterator iterator of yaml parser that produces ACLPolicyDoc
+     * @param validation validation set
+     * @param sourceIdentity identity
+     * @return iterable over policy documents
+     */
+    public static Iterable<ACLPolicyDoc> documentIterable(
+        final Iterator<? extends Object> iterator,
+        final ValidationSet validation,
+        final String sourceIdentity
+    ) {
+        return () -> new Iterator<ACLPolicyDoc>() {
+            int index = 1;
+
+            @Override
+            public boolean hasNext() {
+                try {
+                    return iterator.hasNext();
+                } catch (Throwable ignored) {
+                }
+                return false;
+            }
+
+            @Override
+            public ACLPolicyDoc next() {
+                Object next = null;
+                try {
+                    next = iterator.next();
+                } catch (YAMLException e) {
+                    if (null != validation) {
+                        validation.addError(
+                            currentIdentity(),
+                            "Error parsing the policy document: " + extractSyntaxError(e)
+                        );
+                    }
+                    return null;
+                } catch (RuntimeException e) {
+                    if (null != validation) {
+                        validation.addError(
+                            currentIdentity(),
+                            "Error parsing the policy document: " + e.getMessage()
+                        );
+                    }
+                    return null;
+                }
+                if (next == null) {
+                    return null;
+                }
+                if (!(next instanceof ACLPolicyDoc)) {
+                    if (null != validation) {
+                        validation.addError(
+                            currentIdentity(),
+                            "Expected a YamlPolicyDoc document, but was type: " + next.getClass()
+                        );
+                    }
+                    return null;
+                }
+                index++;
+                return (ACLPolicyDoc) next;
+            }
+
+            private String currentIdentity() {
+                return (sourceIdentity != null ? sourceIdentity : "") + "[" + index + "]";
+            }
+        };
+    }
 
     static YamlPolicyCollection.YamlSourceLoader<ACLPolicyDoc> loader(
-            final YamlSource source1,
-            final ValidationSet validation
-    )
-    {
+        final YamlSource source1,
+        final ValidationSet validation
+    ) {
         return new YamlPolicyCollection.YamlSourceLoader<ACLPolicyDoc>() {
             @Override
             public Iterable<ACLPolicyDoc> loadAll() throws IOException {
                 final Yaml yaml = new Yaml(new YamlPolicyDocConstructor());
-                Iterable<Object> objects = source1.loadAll(yaml);
-                Iterator<Object> iterator = objects.iterator();
-                return new Iterable<ACLPolicyDoc>() {
-                    @Override
-                    public Iterator<ACLPolicyDoc> iterator() {
-                        return new Iterator<ACLPolicyDoc>() {
-                            int index = 0;
+                Iterable<ACLPolicyDoc> objects = source1.loadAll(yaml);
+                Iterator<ACLPolicyDoc> iterator = objects.iterator();
+                return documentIterable(iterator);
+            }
 
-                            @Override
-                            public boolean hasNext() {
-                                return iterator.hasNext();
-                            }
-
-                            @Override
-                            public ACLPolicyDoc next() {
-                                Object next = null;
-                                index++;
-                                try {
-                                    next = iterator.next();
-                                } catch (ConstructorException e) {
-                                    e.printStackTrace();
-                                    if (null != validation) {
-                                        validation.addError(
-                                                currentIdentity(),
-                                                "Error parsing the policy document: " + e.getCause().getMessage()
-                                        );
-                                    }
-                                    return null;
-                                } catch (YAMLException e) {
-                                    e.printStackTrace();
-                                    if (null != validation) {
-                                        validation.addError(
-                                                currentIdentity(),
-                                                "Error parsing the policy document: " + e.getMessage()
-                                        );
-                                    }
-                                    return null;
-                                }
-                                if (next == null) {
-                                    return null;
-                                }
-                                if (!(next instanceof ACLPolicyDoc)) {
-                                    if (null != validation) {
-                                        validation.addError(
-                                                currentIdentity(),
-                                                "Expected a YamlPolicyDoc document, but was type: " + next.getClass()
-                                        );
-                                    }
-                                    return null;
-                                }
-                                return (ACLPolicyDoc) next;
-                            }
-
-                            private String currentIdentity() {
-                                return source1.getIdentity() + "[" + index + "]";
-                            }
-                        };
-                    }
-                };
+            public Iterable<ACLPolicyDoc> documentIterable(final Iterator<ACLPolicyDoc> iterator) {
+                return YamlParsePolicy.documentIterable(iterator, validation, source1.getIdentity());
             }
 
             @Override
@@ -672,6 +706,26 @@ public class YamlParsePolicy implements Policy {
         };
     }
 
+    private static String extractSyntaxError(Exception e) {
+        String error = null;
+        if (e.getCause() != null) {
+            error = e.getCause().getMessage();
+        } else if(e instanceof MarkedYAMLException){
+            //tostring has more info that message
+            error=e.toString();
+        }else {
+            error = e.getMessage();
+        }
+        if (error != null) {
+            Pattern pattern = Pattern.compile("Unable to find property\\s(.+)\\son class");
+            Matcher matcher = pattern.matcher(error);
+            if (matcher.find() && null != matcher.group(1)) {
+                return "Unknown property: " + matcher.group(1);
+            }
+        }
+        return error;
+
+    }
     static YamlPolicyCollection.YamlPolicyCreator<ACLPolicyDoc> creator(
             final Set<Attribute> forcedContext,
             final ValidationSet validation

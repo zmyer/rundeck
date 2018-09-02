@@ -27,6 +27,7 @@
 <head>
     <meta name="layout" content="base"/>
     <meta name="tabpage" content="configure"/>
+    <meta name="tabtitle" content="${g.message(code:'licenses')}"/>
   <title><g:message code="licenses" /></title>
 </head>
 <body>
@@ -35,7 +36,7 @@
 
 **[Rundeck](http://rundeck.com)**
 
-    Copyright 2017 Rundeck, Inc.
+    Copyright 2018 Rundeck, Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.

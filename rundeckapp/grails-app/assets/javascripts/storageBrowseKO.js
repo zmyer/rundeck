@@ -229,7 +229,7 @@ function StorageBrowser(baseUrl, rootPath, fileSelect) {
     });
 
     self.selectedPathUrl=ko.computed(function(){
-       return _genUrl(appLinks.storageKeysBrowse,{resourcePath:self.selectedPath()});
+        return _genUrl(appLinks.storageKeysBrowse + '/' + self.selectedPath());
     });
 
     //functions
@@ -329,12 +329,14 @@ function StorageBrowser(baseUrl, rootPath, fileSelect) {
             self.inputPath(self.relativePath(self.parentDirString(self.selectedResource().path())));
             self.upload.keyType(self.selectedResource().isPrivateKey()?'private': self.selectedResource().isPublicKey()?'public':'password');
             self.upload.modifyMode(true);
+            // jQuery("#storageuploadkey").modal({backdrop:false});
             jQuery("#storageuploadkey").modal('show');
         }
     };
     self.actionUpload=function(){
         self.upload.modifyMode(false);
         self.upload.fileName('');
+        // jQuery("#storageuploadkey").modal({backdrop: false});
         jQuery("#storageuploadkey").modal('show');
     };
     self.actionLoadContents=function(destid,btn){

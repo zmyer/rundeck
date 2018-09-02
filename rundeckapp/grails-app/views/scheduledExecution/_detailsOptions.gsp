@@ -15,7 +15,7 @@
   --}%
 <%--
     _detailsOptions.gsp
-    
+
     Author: Greg Schueler <a href="mailto:greg@dtosolutions.com">greg@dtosolutions.com</a>
     Created: Aug 2, 2010 1:50:19 PM
     $Id$
@@ -51,8 +51,8 @@
     <ul class="options">
         <g:render template="/scheduledExecution/optlistContent" model="${[options:options,edit:edit]}"/>
     </ul>
-    <div id="optionDropFinal" class="dragdropfinal" data-abs-index="${options?.size()?:1}" data-is-final="true" style="display:none"></div>
-    <g:embedJSON id="optDataList" data="${options.collect{[name:it.name,type:it.optionType]}}"/>
+    <div id="optionDropFinal" class="dragdropfinal droppableitem" data-abs-index="${options?.size()?:1}" data-is-final="true" style="display:none"></div>
+    <g:embedJSON id="optDataList" data="${options.collect{[name:it.name,type:it.optionType,multivalued:it.multivalued, delimiter: it.delimiter]}}"/>
     <g:javascript>
     jQuery(function(){
         "use strict";
@@ -66,7 +66,7 @@
     </div>
 
     <g:if test="${edit}">
-        <div id="optnewbutton" style="margin:5px 0 15px 0; ">
+        <div id="optnewbutton" style="margin:10px 0; ">
             <span class="btn btn-default btn-sm ready" onclick="_optaddnew();" title="Add a new Option">
                 <b class="glyphicon glyphicon-plus"></b>
                 Add an option

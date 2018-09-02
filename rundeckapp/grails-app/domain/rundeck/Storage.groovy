@@ -16,8 +16,11 @@
 
 package rundeck
 
+import com.dtolabs.rundeck.app.support.DomainIndexHelper
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.rundeck.storage.api.PathUtil
+
+import static grails.gorm.hibernate.mapping.MappingBuilder.orm
 
 
 class Storage {
@@ -57,11 +60,19 @@ class Storage {
     def beforeValidate() {
         setupSha()
     }
-    static mapping= {
-        data(type: 'binary')
-        dir(type: 'string')
-        jsonData(type: 'text')
-        name(type: 'string')
+    static final mapping = orm {
+        cache {
+            enabled true
+            usage 'nonstrict-read-write'
+        }
+        property 'data', [type: 'binary']
+        property 'dir', [type: 'string']
+        property 'jsonData', [type: 'text']
+        property 'name', [type: 'string']
+
+        DomainIndexHelper.generate(delegate) {
+            index 'STORAGE_IDX_NAMESPACE', ['namespace']
+        }
     }
     //ignore fake property 'storageMeta' and 'path' and do not store it
     static transients = ['storageMeta','path']

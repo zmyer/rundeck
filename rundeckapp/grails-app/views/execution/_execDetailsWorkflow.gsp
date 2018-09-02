@@ -25,15 +25,19 @@
 <g:unless test="${isAdhoc}">
 <g:if test="${edit}">
 <div>
-    <span class=""><g:message code="Workflow.property.keepgoing.prompt" /></span>
-    <label>
-        <input type="radio" name="workflow.keepgoing" value="false" ${workflow?.keepgoing?'':'checked'}/>
-        <g:message code="Workflow.property.keepgoing.false.description"/>
-    </label>
-    <label>
-        <input type="radio" name="workflow.keepgoing" value="true" ${workflow?.keepgoing?'checked':''}/>
-        <g:message code="Workflow.property.keepgoing.true.description"/>
-    </label>
+    <div class=""><g:message code="Workflow.property.keepgoing.prompt" /></div>
+    <div class="radio radio-inline">
+      <input type="radio" id="workflowKeepGoingFail" name="workflow.keepgoing" value="false" ${workflow?.keepgoing?'':'checked'}/>
+      <label for="workflowKeepGoingFail">
+          <g:message code="Workflow.property.keepgoing.false.description"/>
+      </label>
+    </div>
+    <div class="radio radio-inline">
+      <input type="radio" id="workflowKeepGoingRemainingSteps" name="workflow.keepgoing" value="true" ${workflow?.keepgoing?'checked':''}/>
+      <label for="workflowKeepGoingRemainingSteps">
+          <g:message code="Workflow.property.keepgoing.true.description"/>
+      </label>
+    </div>
 </div>
 <div class="" id="workflowstrategyplugins">
     <g:set var="wfstrat" value="${params?.workflow?.strategy?:workflow?.strategy=='step-first'?'sequential':workflow?.strategy?:'node-first'}"/>
@@ -96,6 +100,75 @@ jQuery(function(){
 </g:javascript>
 
 </div>
+<hr>
+    <g:set var="workflowLogFilterPluginConfigs" value="${workflow?.getPluginConfigDataList('LogFilter')}"/>
+    <g:if test="${logFilterPlugins}">
+        <div id="logfilterplugins_wf" style="margin: 10px 0;">
+            <div class="">
+                <div class="${hasErrors(bean: workflow, field: 'strategy', 'has-error')}">
+                    <label class="">
+                      <g:message code="global.log.filters" />
+                      <span class="btn btn-default btn-xs" data-bind="click: addFilterPopup">
+                          <g:icon name="plus"/>
+                          <g:message code="add" />
+                      </span>
+                    </label>
+
+                    <div>
+                        <!-- ko foreach: {data: filters, as: 'filter' } -->
+                        <div class="btn-group" style="margin-top:15px;">
+                          <span class="btn btn-sm btn-default autohilite"
+                                style="border-right:0;"
+                                data-bind="click: $root.editFilter"
+                                title="${message(code:"click.to.edit.filter")}">
+                              <!-- ko if: plugin() -->
+                              <!-- ko with: plugin() -->
+                              <!-- ko if: iconSrc -->
+                              <img width="16px" height="16px" data-bind="attr: {src: iconSrc}"/>
+                              <!-- /ko -->
+                              <!-- ko if: !iconSrc() -->
+                              <i class="rdicon icon-small plugin"></i>
+                              <!-- /ko -->
+                              <!-- /ko -->
+                              <!-- /ko -->
+                              <span data-bind="text: title"></span>
+                          </span>
+                          <!--define hidden inputs for the configured filter -->
+                          <input type="hidden"
+                                 data-bind="attr: { name: 'workflow.globalLogFilters.'+index()+'.type', value: type}"/>
+                          <!--config values-->
+                          <span data-bind="foreachprop: config">
+                              <input type="hidden"
+                                     data-bind="attr: { name: 'workflow.globalLogFilters.'+filter.index()+'.config.'+key, value: value}"/>
+                          </span>
+                          <span class="btn btn-danger btn-sm"
+                                data-bind="click: $root.removeFilter"
+                                title="${message(code:"remove.filter")}">
+                              <g:icon name="remove"/></span>
+                        </div>
+                        <!-- /ko -->
+
+                        <g:embedJSON id="logFilterData_wf" data="${[
+                                global: true,
+                                description: "All workflow steps",
+                                filters: workflowLogFilterPluginConfigs ?: []
+                        ]
+                        }"/>
+                        <script type="text/javascript">
+                            fireWhenReady("logfilterplugins_wf", function () {
+                                var step = workflowEditor.bindStepFilters('logfilterplugins_wf', 'logfilterplugins_wf', loadJsonData('logFilterData_wf'), {
+                                    editor: function (x) {
+                                        return new WorkflowGlobalLogFilterEditor(x);
+                                    }
+                                });
+                            });
+                        </script>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </g:if>
+    <hr>
 </g:if>
 </g:unless>
 <div class="pflowlist ${edit?'edit':''} rounded ${isAdhoc?'adhoc':''}" style="">
@@ -107,7 +180,7 @@ jQuery(function(){
     <ol id="wfilist_${rkey}" class="flowlist">
         <g:render template="/execution/wflistContent" model="${[workflow:workflow,edit:edit,noimgs:noimgs,project:project]}"/>
     </ol>
-    <div id="workflowDropfinal" class="dragdropfinal" data-wfitemnum="${workflow?.commands? workflow.commands.size():0}" style="display:none"></div>
+
     <div class="empty note ${error?'error':''}" id="wfempty" style="${wdgt.styleVisible(unless:workflow && workflow?.commands)}">
         No Workflow ${g.message(code:'Workflow.step.label')}s
     </div>
@@ -119,7 +192,7 @@ jQuery(function(){
             Add a ${g.message(code:'Workflow.step.label')}
         </span>
     </div>
-    <div id="wfnewtypes" style="display:none; margin-top:10px;" class="panel panel-success">
+    <div id="wfnewtypes" style="display:none; margin-top:10px;" class="panel panel-default">
         <g:render template="/execution/wfAddStep"
             model="[addMessage:'Workflow.step.label.add',chooseMessage:'Workflow.step.label.choose.the.type']"
         />
@@ -161,14 +234,14 @@ jQuery(function(){
 </div>
 <g:if test="${!edit && !isAdhoc}">
     <div>
-    <span class="text-muted text-em">
+    <span class="text-primary text-em">
         <g:message code="Workflow.property.keepgoing.prompt"/>
         <strong><g:message
             code="Workflow.property.keepgoing.${workflow?.keepgoing ? true : false}.description"/></strong>
     </span>
     </div>
     <div>
-    <span class="text-muted text-em">
+    <span class="text-primary text-em">
         <g:message code="strategy"/>:
         <div id="workflowstrategydetail" data-strategy="${workflow?.strategy}">
             <g:embedJSON id="workflowstrategyconfigdata"
@@ -183,6 +256,29 @@ jQuery(function(){
     </span>
 
     </div>
+    <g:set var="workflowLogFilterPluginConfigs" value="${workflow?.getPluginConfigDataList('LogFilter')}"/>
+    <g:if test="${workflowLogFilterPluginConfigs}">
+        <div>
+
+            <span class="text-primary text-em">
+                Log Filters:
+                <div id="workflowlogfilterdetail">
+                    <g:embedJSON id="workflowlogfilterconfigdata"
+                                 data="${[filters: workflowLogFilterPluginConfigs]}"/>
+                    <g:each in="${workflowLogFilterPluginConfigs}" var="config">
+
+                        <g:render template="/framework/renderPluginConfig"
+                                  model="[showPluginIcon: true,
+                                          type          : config.type,
+                                          values        : config.config,
+                                          description   : logFilterPlugins?.values()?.
+                                                  find { it.name == config.type }?.description
+                                  ]"/>
+                    </g:each>
+                </div>
+            </span>
+        </div>
+    </g:if>
 </g:if>
 <div class="clear"></div>
 

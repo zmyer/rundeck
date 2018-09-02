@@ -29,26 +29,26 @@
 
     <meta name="layout" content="base"/>
     <meta name="tabpage" content="projectHome"/>
-    <title><g:appTitle/> - ${project}</title>
+    <title><g:appTitle/> - ${session.frameworkLabels?session.frameworkLabels[project]:project}</title>
     <g:embedJSON data="${[project: project]}" id="projectData"/>
+    <asset:stylesheet href="static/css/pages/project-dashboard.css"/>
     <asset:javascript src="menu/projectHome.js"/>
-
 </head>
 
 <body>
-
-<div class="row">
-    <div class="col-sm-12">
-        <g:render template="/common/messages"/>
+  <div class="container-fluid">
+    <div class="row">
+        <div class="col-xs-12">
+            <g:render template="/common/messages"/>
+        </div>
     </div>
-</div>
 
-
-<script id="project-home" type="text/html"><g:render template="projectHomeKO"/></script>
-
-<!-- ko if: project -->
-<div data-bind="template: {name:'project-home', data: {project: project(), projectName: project().name() }}"></div>
-<!-- /ko -->
-
+    <div id="projectHome-content">
+      <div id=project-dashboard-vue></div>
+    </div>
+  </div>
+  <asset:javascript src="static/manifest.js"/>
+  <asset:javascript src="static/vendor.js"/>
+  <asset:javascript src="static/pages/project-dashboard.js"/>
 </body>
 </html>

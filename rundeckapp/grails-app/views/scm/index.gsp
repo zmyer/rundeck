@@ -25,43 +25,55 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <meta name="tabpage" content="configure"/>
+    <meta name="tabpage" content="projectconfigure"/>
+    <meta name="projtabtitle" content="${message(code: 'gui.menu.Scm')}"/>
     <meta name="layout" content="base"/>
-    <title><g:appTitle/> - <g:message code="scmController.page.index.title" args="[params.project]"/></></title>
+    <g:set var="projectLabel" value="${session.frameworkLabels?session.frameworkLabels[params.project]:params.project}"/>
+    <title><g:appTitle/> - <g:message code="scmController.page.index.title" args="[projectLabel]"/></></title>
 
 </head>
 
 <body>
-
-<div class="row">
-    <div class="col-sm-12">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-sm-12">
         <g:render template="/common/messages"/>
+      </div>
     </div>
-</div>
-
-<div class="row">
-    <div class="col-sm-3">
-        <g:render template="/menu/configNav" model="[selected: 'scm']"/>
-    </div>
-
-    <div class="col-sm-9">
-        <h3><g:message code="gui.menu.Scm" default="Project SCM Integration"/></h3>
-
-        <div class="well well-sm">
-            <div class="text-info">
-                <g:message code="scmController.page.index.description" default="Enable or configure SCM integration."/>
+    <div class="row">
+      <div class="col-xs-12">
+        <div class="card card-default">
+          <div class="card-header">
+            <h3 class="card-title">
+              <g:message code="gui.menu.Scm" default="Setup SCM"/>
+            </h3>
+          </div>
+          <div class="card-content">
+            <p class="text-info">
+              <g:message code="scmController.page.index.description" default="Enable or configure SCM integration."/>
+            </p>
+            <div class="list-group">
+              <g:each in="['export', 'import']" var="integration">
+                <div class="list-group-item">
+                  <div class="list-group-item-heading">
+                    <h4 style="margin:5px 0 10px">
+                      <g:message code="scm.${integration}.title"/>
+                    </h4>
+                  </div>
+                  <g:render template="pluginConfigList" model="[
+                    integration     : integration,
+                    pluginConfig    : pluginConfig[integration],
+                    enabled         : enabled[integration],
+                    configuredPlugin: configuredPlugin[integration],
+                    plugins         : plugins[integration]
+                  ]"/>
+                </div>
+              </g:each>
             </div>
+          </div>
         </div>
-        <g:each in="['export','import']" var="integration">
-            <g:render template="pluginConfigList" model="[
-                    integration:integration,
-                    pluginConfig:pluginConfig[integration],
-                    enabled:enabled[integration],
-                    configuredPlugin:configuredPlugin[integration],
-                    plugins:plugins[integration]
-            ]"/>
-        </g:each>
+      </div>
     </div>
-</div>
+  </div>
 </body>
 </html>

@@ -46,4 +46,4 @@ if [ -z "$RDAUTH" ] ; then
     fi
 fi
 
-echo "Login OK"
+

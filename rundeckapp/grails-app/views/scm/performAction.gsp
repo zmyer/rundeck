@@ -27,7 +27,8 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <meta name="tabpage" content="configure"/>
     <meta name="layout" content="base"/>
-    <title><g:appTitle/> - <g:message code="scmController.page.commit.title" args="[params.project]"/></title>
+    <g:set var="projectLabel" value="${session.frameworkLabels?session.frameworkLabels[params.project]:params.project}"/>
+    <title><g:appTitle/> - <g:message code="scmController.page.commit.title" args="[projectLabel]"/></title>
 
 </head>
 
@@ -102,16 +103,17 @@
                             <div class="list-group-item">
                                 <div class="form-group">
                                     <g:each in="${jobs}" var="job">
-
+                                        <g:set var="jobstatus" value="${scmStatus?.get(job.extid)}"/>
                                         <div class="checkbox col-sm-12">
-                                            <label>
-                                                <g:set var="jobstatus" value="${scmStatus?.get(job.extid)}"/>
+
+
                                                 <g:if test="${jobstatus?.synchState?.toString() != 'CLEAN'}">
 
                                                     <g:checkBox name="id" value="${job.extid}"
+                                                                id="id${job.extid}"
                                                                 checked="${selected?.contains(job.extid)}"/>
                                                 </g:if>
-
+                                            <label for="id${job.extid}">
                                                 <g:render template="statusIcon"
                                                           model="[iscommit          : true,
                                                                   exportStatus: jobstatus?.synchState?.toString(),
@@ -127,7 +129,7 @@
                                                                   text: job.jobName,
                                                                   commit: jobstatus?.commit]"/>
 
-                                                <span class="text-muted">
+                                                <span class="text-primary">
                                                     - ${job.groupPath}
                                                 </span>
 
@@ -139,7 +141,7 @@
                                         </div>
                                         <g:if test="${renamedJobPaths?.get(job.extid)}">
                                             <div class="col-sm-11 col-sm-offset-1">
-                                                <span class="text-muted">
+                                                <span class="text-primary">
                                                     <g:icon name="file"/>
                                                     ${renamedJobPaths[job.extid]}
 
@@ -151,7 +153,7 @@
                                         </g:if>
                                         <g:if test="${filesMap?.get(job.extid)}">
                                             <div class="col-sm-11 col-sm-offset-1">
-                                                <span class="text-muted">
+                                                <span class="text-primary">
                                                     <g:if test="${renamedJobPaths?.get(job.extid)}">
                                                         <g:icon name="arrow-right"/>
                                                     </g:if>
@@ -167,12 +169,12 @@
                                 <g:if test="${jobs.size() > 1}">
                                     <div class=" row row-spacing">
                                         <div class=" col-sm-12">
-                                            <span class="textbtn textbtn-default"
+                                            <span class="btn btn-default"
                                                   onclick="jQuery('input[name=id]').prop('checked', true)">
                                                 <g:message code="select.all"/>
                                             </span>
                                         &bull;
-                                            <span class="textbtn textbtn-default"
+                                            <span class="btn btn-default"
                                                   onclick="jQuery('input[name=id]').prop('checked', false)">
                                                 <g:message code="select.none"/>
                                             </span>
@@ -186,14 +188,13 @@
 
                             <div class="list-group-item">
                                 <div class="form-group">
-                                    <g:each in="${deletedPaths.keySet().sort()}" var="path">
+                                    <g:each in="${deletedPaths.keySet().sort()}" var="path" status="counter">
 
                                         <div class="checkbox col-sm-12">
-                                            <label>
-
                                                 <g:checkBox name="deletePaths" value="${path}"
+                                                            id="deletePaths${counter}"
                                                             checked="${selectedPaths?.contains(path)}"/>
-
+                                            <label for="deletePaths${counter}">
                                                 <g:set var="deletedJobText" value="${
                                                     deletedPaths[path].jobNameAndGroup ?:
                                                             message(code: "deleted.job.label")
@@ -210,7 +211,7 @@
                                         </div>
 
                                         <div class="col-sm-11 col-sm-offset-1">
-                                            <span class="text-muted">
+                                            <span class="text-primary">
                                                 <span class="glyphicon glyphicon-file"></span>
                                                 ${path}
                                             </span>
@@ -221,12 +222,12 @@
                                 <g:if test="${deletedPaths.size() > 1}">
                                     <div class=" row row-spacing">
                                         <div class=" col-sm-12">
-                                            <span class="textbtn textbtn-default"
+                                            <span class="btn btn-default"
                                                   onclick="jQuery('input[name=deletePaths]').prop('checked', true)">
                                                 <g:message code="select.all"/>
                                             </span>
                                         &bull;
-                                            <span class="textbtn textbtn-default"
+                                            <span class="btn btn-default"
                                                   onclick="jQuery('input[name=deletePaths]').prop('checked', false)">
                                                 <g:message code="select.none"/>
                                             </span>
@@ -249,11 +250,11 @@
                                     <g:each in="${trackingItems}" var="trackedItem">
                                         <g:set var="job" value="${trackedItem.jobId?jobMap[trackedItem.jobId]:null}"/>
                                         <div class="checkbox col-sm-12">
-                                            <label title="${trackedItem.id}">
                                                 <g:checkBox name="chosenTrackedItem"
+                                                            id="chosenTrackedItem${trackedItem.id}"
                                                             value="${trackedItem.id}"
                                                             checked="${selectedItems?.contains(trackedItem.id)||trackedItem.selected||(trackedItem.jobId && selected?.contains(trackedItem.jobId))}"/>
-
+                                            <label title="${trackedItem.id}" for="chosenTrackedItem${trackedItem.id}">
                                                 <g:if test="${job}">
 
                                                     <g:set var="jobstatus" value="${scmStatus?.get(job.extid)}"/>
@@ -273,7 +274,7 @@
                                                                       text: job.jobName,
                                                                       commit: jobstatus?.commit]"/>
 
-                                                    <span class="text-muted">
+                                                    <span class="text-primary">
                                                         - ${job.groupPath}
                                                     </span>
                                                 </g:if>
@@ -298,7 +299,7 @@
                                         </div>
                                         <g:if test="${job}">
                                             <div class="col-sm-11 col-sm-offset-1">
-                                                <span class="text-muted">
+                                                <span class="text-primary">
                                                     <span class="">
                                                         <g:if test="${trackedItem.iconName}">
                                                             <g:icon name="${trackedItem.iconName}"/>
@@ -314,13 +315,101 @@
                                 <g:if test="${trackingItems.size() > 1}">
                                     <div class=" row row-spacing">
                                         <div class=" col-sm-12">
-                                            <span class="textbtn textbtn-default"
+                                            <span class="btn btn-default"
                                                   onclick="jQuery('input[name=chosenTrackedItem]').prop('checked', true)">
                                                 <g:message code="select.all"/>
                                             </span>
                                         &bull;
-                                            <span class="textbtn textbtn-default"
+                                            <span class="btn btn-default"
                                                   onclick="jQuery('input[name=chosenTrackedItem]').prop('checked', false)">
+                                                <g:message code="select.none"/>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </g:if>
+                            </div>
+                        </g:if>
+                        <g:if test="${toDeleteItems}">
+                            <div class="list-group-item overflowy">
+                                <div class="form-group">
+                                    <g:each in="${toDeleteItems}" var="toDeleteItem">
+                                        <g:set var="job" value="${toDeleteItem.jobId?jobMap[toDeleteItem.jobId]:null}"/>
+                                        <g:set var="jobst" value="${job?scmStatus?.get(job.extid)?.synchState?.toString():null}"/>
+
+                                        <div class="checkbox col-sm-12">
+
+                                                <g:checkBox name="chosenDeleteItem"
+                                                    id="chosenDeleteItem${toDeleteItem.id}"
+                                                            value="${(jobst == 'DELETE_NEEDED')?toDeleteItem.jobId:toDeleteItem.id}"
+                                                            checked="${selectedItems?.contains(toDeleteItem.id)||toDeleteItem.selected||(toDeleteItem.jobId && selected?.contains(toDeleteItem.jobId))}"/>
+                                            <label title="${toDeleteItem.id}" for="chosenDeleteItem${toDeleteItem.id}">
+                                                <g:if test="${job}">
+
+                                                    <g:set var="jobstatus" value="${scmStatus?.get(job.extid)}"/>
+
+                                                    <g:render template="statusIcon"
+                                                              model="[iscommit          : true,
+                                                                      importStatus: jobstatus?.synchState?.toString(),
+                                                                      notext: true,
+                                                                      integration:integration,
+                                                                      text: '',
+                                                                      commit: jobstatus?.commit]"/>
+                                                    <g:render template="statusIcon"
+                                                              model="[iscommit          : true,
+                                                                      importStatus: jobstatus?.synchState?.toString(),
+                                                                      noicon: true,
+                                                                      integration:integration,
+                                                                      text: job.jobName,
+                                                                      commit: jobstatus?.commit]"/>
+
+                                                    <span class="text-primary">
+                                                        - ${job.groupPath}
+                                                    </span>
+                                                </g:if>
+                                                <g:else>
+
+                                                    <span class="">
+                                                        <g:if test="${toDeleteItem.iconName}">
+                                                            <g:icon name="${toDeleteItem.iconName}"/>
+                                                        </g:if>
+                                                        ${toDeleteItem.title ?: toDeleteItem.id}
+                                                    </span>
+                                                </g:else>
+
+                                            </label>
+                                            <g:if test="${job}">
+
+                                                <g:link action="diff" class="btn btn-xs btn-info"
+                                                        params="${[project: params.project, id: job.extid, integration: 'import']}">
+                                                    <g:message code="button.View.Diff.title"/>
+                                                </g:link>
+                                            </g:if>
+                                        </div>
+                                        <g:if test="${job}">
+                                            <div class="col-sm-11 col-sm-offset-1">
+                                                <span class="text-primary">
+                                                    <span class="">
+                                                        <g:if test="${toDeleteItem.iconName}">
+                                                            <g:icon name="${toDeleteItem.iconName}"/>
+                                                        </g:if>
+                                                        ${toDeleteItem.title ?: toDeleteItem.id}
+                                                    </span>
+                                                </span>
+                                            </div>
+                                        </g:if>
+
+                                    </g:each>
+                                </div>
+                                <g:if test="${toDeleteItems.size() > 1}">
+                                    <div class=" row row-spacing">
+                                        <div class=" col-sm-12">
+                                            <span class="btn btn-default"
+                                                  onclick="jQuery('input[name=chosenDeleteItem]').prop('checked', true)">
+                                                <g:message code="select.all"/>
+                                            </span>
+                                            &bull;
+                                            <span class="btn btn-default"
+                                                  onclick="jQuery('input[name=chosenDeleteItem]').prop('checked', false)">
                                                 <g:message code="select.none"/>
                                             </span>
                                         </div>

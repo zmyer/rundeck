@@ -16,51 +16,35 @@
 
 package rundeck.services
 
+import com.dtolabs.rundeck.app.support.ExecutionQuery
 import com.dtolabs.rundeck.core.authentication.Group
 import com.dtolabs.rundeck.core.authentication.Username
-import com.dtolabs.rundeck.core.authorization.Attribute
-import com.dtolabs.rundeck.core.authorization.AuthContext
-import com.dtolabs.rundeck.core.authorization.AuthorizationUtil
-import com.dtolabs.rundeck.core.authorization.MultiAuthorization
-import com.dtolabs.rundeck.core.authorization.UserAndRolesAuthContext
-import com.dtolabs.rundeck.core.authorization.SubjectAuthContext
+import com.dtolabs.rundeck.core.authorization.*
 import com.dtolabs.rundeck.core.authorization.providers.EnvironmentalContext
 import com.dtolabs.rundeck.core.common.*
 import com.dtolabs.rundeck.core.execution.service.ExecutionServiceException
+import com.dtolabs.rundeck.core.execution.service.FileCopier
 import com.dtolabs.rundeck.core.execution.service.FileCopierService
 import com.dtolabs.rundeck.core.execution.service.MissingProviderException
+import com.dtolabs.rundeck.core.execution.service.NodeExecutor
 import com.dtolabs.rundeck.core.execution.service.NodeExecutorService
 import com.dtolabs.rundeck.core.plugins.PluggableProviderRegistryService
-import com.dtolabs.rundeck.core.plugins.configuration.PropertyResolverFactory
-import com.dtolabs.rundeck.core.plugins.configuration.Describable
-import com.dtolabs.rundeck.core.plugins.configuration.Description
-import com.dtolabs.rundeck.core.plugins.configuration.Property
-import com.dtolabs.rundeck.core.plugins.configuration.PropertyScope
-import com.dtolabs.rundeck.core.plugins.configuration.Validator
+import com.dtolabs.rundeck.core.plugins.PluggableProviderService
+import com.dtolabs.rundeck.core.plugins.configuration.*
+import com.dtolabs.rundeck.core.resources.ResourceModelSourceFactory
 import com.dtolabs.rundeck.server.authorization.AuthConstants
-import com.dtolabs.rundeck.server.plugins.PluginCustomizer
+import com.dtolabs.rundeck.server.plugins.DescribedPlugin
 import com.dtolabs.rundeck.server.plugins.loader.ApplicationContextPluginFileSource
-import com.dtolabs.rundeck.server.plugins.loader.PluginFileManifest
-import com.dtolabs.rundeck.server.plugins.loader.PluginFileSource
-import com.dtolabs.utils.Streams
-import grails.spring.BeanBuilder
-import org.codehaus.groovy.grails.commons.GrailsApplication
-import org.springframework.beans.factory.NoSuchBeanDefinitionException
-import org.springframework.beans.factory.config.AutowireCapableBeanFactory
-import org.springframework.beans.factory.groovy.GroovyBeanDefinitionReader
-import org.springframework.beans.factory.support.BeanDefinitionBuilder
-import org.springframework.beans.factory.support.BeanDefinitionRegistry
+import grails.core.GrailsApplication
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationContextAware
-import org.springframework.scripting.config.LangNamespaceUtils
-import org.springframework.scripting.groovy.GroovyScriptFactory
-import org.springframework.scripting.support.ScriptFactoryPostProcessor
 import rundeck.Execution
 import rundeck.PluginStep
 import rundeck.ScheduledExecution
+import rundeck.services.framework.RundeckProjectConfigurable
 
 import javax.security.auth.Subject
-import java.nio.charset.Charset
+import java.util.function.Predicate
 
 /**
  * Interfaces with the core Framework object
@@ -80,6 +64,8 @@ class FrameworkService implements ApplicationContextAware {
     def metricService
     def Framework rundeckFramework
     def rundeckPluginRegistry
+    def PluginService pluginService
+    def PluginControlService pluginControlService
 
     def getRundeckBase(){
         return rundeckFramework.baseDir.absolutePath;
@@ -123,7 +109,57 @@ class FrameworkService implements ApplicationContextAware {
     def getServerUUID(){
         return serverUUID
     }
-   
+
+    /**
+     *
+     * @return the config dir used by the framework
+     */
+    File getFrameworkConfigDir() {
+        rundeckFramework.getConfigDir()
+    }
+
+    /**
+     *
+     * @param name file name in config dir
+     * @return true if a file with the name exists in the config dir
+     */
+    boolean existsFrameworkConfigFile(String name) {
+        new File(frameworkConfigDir, name).isFile()
+    }
+    /**
+     *
+     * @param name file name in config dir
+     * @return true if a file with the name exists in the config dir
+     */
+    String readFrameworkConfigFile(String name, String charset = 'UTF-8') {
+        new File(frameworkConfigDir, name).getText(charset)
+    }
+    /**
+     *
+     * @param name file name in config dir
+     * @return true if a file with the name exists in the config dir
+     */
+    long writeFrameworkConfigFile(String name, String text = null, Closure withOutputStream = null) throws IOException {
+        def file = new File(frameworkConfigDir, name)
+
+        if (text) {
+            file.text = text
+        } else if (withOutputStream) {
+            file.withOutputStream(withOutputStream)
+        }
+
+        file.length()
+    }
+
+    /**
+     * Deletes the framework config file
+     * @param name file name
+     * @return true if deleted
+     */
+    boolean deleteFrameworkConfigFile(String name) {
+        def file = new File(frameworkConfigDir, name)
+        file.delete()
+    }
 
 /**
      * Return a list of FrameworkProject objects
@@ -139,8 +175,8 @@ class FrameworkService implements ApplicationContextAware {
             projMap[proj.name] = proj;
             resources << authResourceForProject(proj.name)
         }
-        def authed = authorizeApplicationResourceSet(authContext, resources, 'read')
-        return new ArrayList(authed.collect{projMap[it.name]})
+        def authed = authorizeApplicationResourceSet(authContext, resources, [AuthConstants.ACTION_READ,AuthConstants.ACTION_ADMIN] as Set)
+        return new ArrayList(new HashSet(authed.collect{it.name}).sort().collect{projMap[it]})
     }
     def projectNames (AuthContext authContext) {
         //authorize the list of projects
@@ -148,8 +184,30 @@ class FrameworkService implements ApplicationContextAware {
         for (projName in rundeckFramework.frameworkProjectMgr.listFrameworkProjectNames()) {
             resources << authResourceForProject(projName)
         }
-        def authed = authorizeApplicationResourceSet(authContext, resources, 'read')
-        return new ArrayList(authed.collect{it.name}).sort()
+        def authed = authorizeApplicationResourceSet(authContext, resources, [AuthConstants.ACTION_READ,AuthConstants.ACTION_ADMIN] as Set)
+        return new ArrayList(new HashSet(authed.collect{it.name})).sort()
+    }
+    def projectLabels (AuthContext authContext) {
+        def projectNames = projectNames(authContext)
+        def projectMap = [:]
+        projectNames.each { project ->
+            def fwkProject = getFrameworkProject(project)
+            def label = fwkProject.getProjectProperties().get("project.label")
+            projectMap.put(project,label?:project)
+        }
+        projectMap
+    }
+    /**
+     * Refresh the session.frameworkProjects and session.frameworkLabels
+     * @param authContext
+     * @param session @param var @return
+     */
+    def refreshSessionProjects(AuthContext authContext, session){
+        def fprojects = projectNames(authContext)
+        def flabels = projectLabels(authContext)
+        session.frameworkProjects = fprojects
+        session.frameworkLabels = flabels
+        fprojects
     }
 
     def existsFrameworkProject(String project) {
@@ -313,7 +371,7 @@ class FrameworkService implements ApplicationContextAware {
      * @return
      */
     def Map authResourceForJob(ScheduledExecution se){
-        return authResourceForJob(se.jobName,se.groupPath)
+        return authResourceForJob(se.jobName,se.groupPath,se.extid)
     }
 
     /**
@@ -321,8 +379,8 @@ class FrameworkService implements ApplicationContextAware {
      * @param se
      * @return
      */
-    def Map authResourceForJob(String name, String groupPath){
-        return AuthorizationUtil.resource(AuthConstants.TYPE_JOB,[name:name,group:groupPath?:''])
+    def Map authResourceForJob(String name, String groupPath, String uuid){
+        return AuthorizationUtil.resource(AuthConstants.TYPE_JOB,[name:name,group:groupPath?:'',uuid: uuid])
     }
     /**
      * Return the resource definition for a project for use by authorization checks
@@ -411,20 +469,56 @@ class FrameworkService implements ApplicationContextAware {
         }
         return !(decisions.find {!it.authorized})
     }
-
     /**
-     * Return true if the user is authorized for all actions for the execution in the project context
+     * Return true if any actions are authorized for the resource in the project context
      * @param framework
-     * @param exec
+     * @param resource
      * @param actions
      * @param project
+     * @return
+     */
+    def boolean authorizeProjectResourceAny(AuthContext authContext, Map resource, Collection actions, String project){
+        if(null==project){
+            throw new IllegalArgumentException("null project")
+        }
+        if (null == authContext) {
+            throw new IllegalArgumentException("null authContext")
+        }
+        def decisions= metricService.withTimer(this.class.name,'authorizeProjectResourceAll') {
+            authContext.evaluate(
+                    [resource] as Set,
+                    actions as Set,
+                    Collections.singleton(new Attribute(URI.create(EnvironmentalContext.URI_BASE + "project"), project)))
+        }
+        return (decisions.find {it.authorized})
+    }
+
+    /**
+     * Return true if the user is authorized for all actions for the execution
+     * @param authContext
+     * @param exec
+     * @param actions
      * @return true/false
      */
-    def authorizeProjectExecutionAll( AuthContext authContext, Execution exec, Collection actions){
+    boolean authorizeProjectExecutionAll( AuthContext authContext, Execution exec, Collection actions){
         def ScheduledExecution se = exec.scheduledExecution
         return se ?
                authorizeProjectJobAll(authContext, se, actions, se.project)  :
                authorizeProjectResourceAll(authContext, AuthConstants.RESOURCE_ADHOC, actions, exec.project)
+
+    }
+    /**
+     * Return true if the user is authorized for any actions for the execution
+     * @param authContext
+     * @param exec
+     * @param actions
+     * @return true/false
+     */
+    boolean authorizeProjectExecutionAny( AuthContext authContext, Execution exec, Collection actions){
+        def ScheduledExecution se = exec.scheduledExecution
+        return se ?
+               authorizeProjectJobAny(authContext, se, actions, se.project)  :
+               authorizeProjectResourceAny(authContext, AuthConstants.RESOURCE_ADHOC, actions, exec.project)
 
     }
     /**
@@ -453,6 +547,19 @@ class FrameworkService implements ApplicationContextAware {
             }
         }
         return results
+    }
+    /**
+     * Return true if the user is authorized for all actions for the job in the project context
+     * @param framework
+     * @param job
+     * @param actions
+     * @param project
+     * @return true/false
+     */
+    def authorizeProjectJobAny(AuthContext authContext, ScheduledExecution job, Collection actions, String project) {
+        actions.any {
+            authorizeProjectJobAll(authContext, job, [it], project)
+        }
     }
     /**
      * Return true if the user is authorized for all actions for the job in the project context
@@ -502,17 +609,17 @@ class FrameworkService implements ApplicationContextAware {
      * return all authorized resources for the action evaluated in the application context
      * @param framework
      * @param resources requested resources to authorize
-     * @param action
+     * @param actions set of any actions to authorize
      * @return set of authorized resources
      */
-    def Set authorizeApplicationResourceSet(AuthContext authContext, Set<Map> resources, String action) {
+    def Set authorizeApplicationResourceSet(AuthContext authContext, Set<Map> resources, Set<String> actions) {
         if (null == authContext) {
             throw new IllegalArgumentException("null authContext")
         }
         def decisions = metricService.withTimer(this.class.name,'authorizeApplicationResourceSet') {
             authContext.evaluate(
                     resources,
-                    [action] as Set,
+                    actions,
                     Collections.singleton(new Attribute(URI.create(EnvironmentalContext.URI_BASE + "application"), 'rundeck')))
         }
         return decisions.findAll {it.authorized}.collect {it.resource}
@@ -605,11 +712,18 @@ class FrameworkService implements ApplicationContextAware {
         }
         return session['_Framework:AuthContext']
     }
-    def Framework getRundeckFramework(){
+    def IFramework getRundeckFramework(){
         if (!initialized) {
             initialize()
         }
         return rundeckFramework;
+    }
+
+    def PluginControlService getPluginControlService(String project) {
+        if(!pluginControlService){
+            pluginControlService = PluginControlServiceImpl.forProject(getRundeckFramework(), project)
+        }
+        return pluginControlService
     }
 
     public UserAndRolesAuthContext getAuthContextForSubject(Subject subject) {
@@ -650,6 +764,9 @@ class FrameworkService implements ApplicationContextAware {
         def authorization = new MultiAuthorization(authorizationService.systemAuthorization, projectAuth)
         log.debug("getAuthContextForSubjectAndProject ${project}, authorization: ${authorization}, project auth ${projectAuth}")
         return new SubjectAuthContext(subject, authorization)
+    }
+    public UserAndRolesAuthContext getAuthContextForUserAndRolesAndProject(String user, List rolelist, String project) {
+        getAuthContextWithProject(getAuthContextForUserAndRoles(user, rolelist), project)
     }
     public UserAndRolesAuthContext getAuthContextForUserAndRoles(String user, List rolelist) {
         if (!(null != user && null != rolelist)) {
@@ -721,8 +838,9 @@ class FrameworkService implements ApplicationContextAware {
      * @param type
      * @return
      */
-    def Description getNodeStepPluginDescription(String type){
-        rundeckFramework.getNodeStepExecutorService().providerOfType(type).description
+    def Description getNodeStepPluginDescription(String type) throws MissingProviderException {
+        final described = pluginService.getPluginDescriptor(type, rundeckFramework.getNodeStepExecutorService())
+        described.description
     }
     /**
      * Return step plugin description of a certain type
@@ -730,8 +848,62 @@ class FrameworkService implements ApplicationContextAware {
      * @param type
      * @return
      */
-    def Description getStepPluginDescription(String type){
-        rundeckFramework.getStepExecutionService().providerOfType(type).description
+    def Description getStepPluginDescription(String type) throws MissingProviderException{
+        final described = pluginService.getPluginDescriptor(type, rundeckFramework.getStepExecutionService())
+        described.description
+    }
+
+    /**
+     * Return step plugin of a certain type
+     * @param type
+     * @return
+     */
+    def getStepPlugin(String type) throws MissingProviderException{
+        final described = pluginService.getPluginDescriptor(type, rundeckFramework.getStepExecutionService())
+        described.instance
+    }
+
+    /**
+     * Return node step plugin of a certain type
+     * @param type
+     * @return
+     */
+    def getNodeStepPlugin(String type){
+        final described = pluginService.getPluginDescriptor(type, rundeckFramework.getNodeStepExecutorService())
+        described.instance
+    }
+
+
+    /**
+     * Return dynamic properties values from step plugin
+     * @param type, projectAndFrameworkValues
+     * @return
+     */
+    def Map<String, Object> getDynamicPropertiesStepPlugin(
+            String type, Map<String, Object> projectAndFrameworkValues) throws MissingProviderException{
+
+        def plugin = getStepPlugin(type)
+        getDynamicProperties(plugin, projectAndFrameworkValues)
+    }
+
+    /**
+     * Return dynamic properties values from node step plugin
+     * @param type, projectAndFrameworkValues
+     * @return
+     */
+    def Map<String, Object> getDynamicPropertiesNodeStepPlugin(
+            String type, Map<String, Object> projectAndFrameworkValues) throws MissingProviderException{
+
+        def plugin = getNodeStepPlugin(type)
+        getDynamicProperties(plugin, projectAndFrameworkValues)
+    }
+
+    def Map<String, Object> getDynamicProperties(plugin, Map<String, Object> projectAndFrameworkValues){
+        if(plugin instanceof DynamicProperties){
+            return plugin.dynamicProperties(projectAndFrameworkValues)
+        }
+
+        return null
     }
     /**
      * Return the list of NodeStepPlugin descriptions
@@ -761,18 +933,18 @@ class FrameworkService implements ApplicationContextAware {
      * @return validation results, keys: "valid" (true/false), "error" (error message), "desc" ({@link Description} object),
      *   "props" (parsed property values map), "report" (Validation report {@link Validator.Report))
      */
-    public Map validateServiceConfig(String type, String prefix, Map params, ProviderService<?> service) {
+    public Map validateServiceConfig(String type, String prefix, Map params, PluggableProviderService<?> service) {
         Map result = [:]
         result.valid=false
-        def provider=null
+        DescribedPlugin provider = null
         try {
-            provider = service.providerOfType(type)
+            provider = pluginService.getPluginDescriptor(type, service)
         } catch (ExecutionServiceException e) {
             result.error = e.message
         }
         if (!provider) {
             result.error = "Invalid provider type: ${type}, not found"
-        } else if (!(provider instanceof Describable)) {
+        } else if (!provider.description) {
             result.error = "Invalid provider type: ${type}, not available for configuration"
         } else {
             def validated=validateDescription(provider.description, prefix, params)
@@ -793,7 +965,7 @@ class FrameworkService implements ApplicationContextAware {
         def result=[:]
         result.valid=false
         result.desc = description
-        result.props = parseResourceModelConfigInput(description, prefix, params)
+        result.props = parsePluginConfigInput(description, prefix, params)
 
         if (description) {
             def report = Validator.validate(result.props as Properties, description)
@@ -828,7 +1000,7 @@ class FrameworkService implements ApplicationContextAware {
         def result = [:]
         result.valid = false
         result.desc = description
-        result.props = parseResourceModelConfigInput(result.desc, prefix, params)
+        result.props = parsePluginConfigInput(result.desc, prefix, params)
         def resolver = getFrameworkPropertyResolver(project, result.props)
         if (result.desc) {
             def report = Validator.validate(resolver, description, defaultScope, ignored)
@@ -847,11 +1019,11 @@ class FrameworkService implements ApplicationContextAware {
      * @param params input parameter map
      * @return map of property name to value based on correct property types.
      */
-    public Map parseResourceModelConfigInput(Description desc, String prefix, final Map params) {
+    public Map parsePluginConfigInput(Description desc, String prefix, final Map params) {
         Map props = [:]
         if (desc) {
             desc.properties.each {prop ->
-                def v = params[prefix  + prop.name]
+                def v = params ? params[prefix + prop.name] : null
                 if (prop.type == Property.Type.Boolean) {
                     props.put(prop.name, (v == 'true' || v == 'on') ? 'true' : 'false')
                 } else if (v) {
@@ -861,7 +1033,7 @@ class FrameworkService implements ApplicationContextAware {
         } else {
             final cfgprefix = prefix
             //just parse all properties with the given prefix
-            params.keySet().each {String k ->
+            params?.keySet()?.each { String k ->
                 if (k.startsWith(cfgprefix)) {
                     def key = k.substring(cfgprefix.length())
                     props.put(key, params[k])
@@ -880,9 +1052,14 @@ class FrameworkService implements ApplicationContextAware {
         pject.getProjectProperties()
     }
 
-    public def listResourceModelConfigurations(String project) {
+    public List<Map<String,Object>> listResourceModelConfigurations(String project) {
         def fproject = getFrameworkProject(project)
         fproject.projectNodes.listResourceModelConfigurations()
+    }
+
+    public def listWriteableResourceModelSources(String project) {
+        def fproject = getFrameworkProject(project)
+        fproject.projectNodes.writeableResourceModelSources
     }
 
     public def listResourceModelConfigurations(Properties properties) {
@@ -890,15 +1067,24 @@ class FrameworkService implements ApplicationContextAware {
     }
 
     /**
-     * Return all the descriptions for the Rundeck Framework
-     * @return tuple(resourceConfigs, nodeExec
+     * Return all the Node Exec plugin type descriptions for the Rundeck Framework, in the order:
+
+     * @return tuple(resourceConfigs, nodeExec, filecopier)
      */
     public def listDescriptions() {
         final fmk = getRundeckFramework()
-        final descriptions = fmk.getResourceModelSourceService().listDescriptions()
-        final nodeexecdescriptions = getNodeExecutorService().listDescriptions()
-        final filecopydescs = getFileCopierService().listDescriptions()
+        final descriptions = pluginService.listPluginDescriptions(ResourceModelSourceFactory, fmk.getResourceModelSourceService())
+        final nodeexecdescriptions = pluginService.listPluginDescriptions(NodeExecutor, fmk.getNodeExecutorService())
+        final filecopydescs = pluginService.listPluginDescriptions(FileCopier, fmk.getFileCopierService())
         return [descriptions, nodeexecdescriptions, filecopydescs]
+    }
+
+
+    List<Description> listResourceModelSourceDescriptions() {
+        pluginService.listPluginDescriptions(
+            ResourceModelSourceFactory,
+            getRundeckFramework().getResourceModelSourceService()
+        )
     }
 
     public getDefaultNodeExecutorService(String project) {
@@ -965,7 +1151,8 @@ class FrameworkService implements ApplicationContextAware {
         def properties = [:]
         if (serviceType) {
             try {
-                final desc = service.providerOfType(serviceType).description
+                def described = pluginService.getPluginDescriptor(serviceType, service)
+                final desc = described.description
                 properties = Validator.demapProperties(props, desc)
             } catch (ExecutionServiceException e) {
                 log.error(e.message)
@@ -985,7 +1172,8 @@ class FrameworkService implements ApplicationContextAware {
         def properties = [:]
         if (serviceType) {
             try {
-                final desc = service.providerOfType(serviceType).description
+                def described = pluginService.getPluginDescriptor(serviceType, service)
+                final desc = described.description
                 properties = Validator.mapProperties(report.errors, desc)
             } catch (ExecutionServiceException e) {
                 log.error(e.message)
@@ -1015,18 +1203,31 @@ class FrameworkService implements ApplicationContextAware {
         demapPropertiesForType(type, getFileCopierService(), projectProps, FileCopierService.SERVICE_DEFAULT_PROVIDER_PROPERTY, config, removePrefixes)
     }
 
-    private void demapPropertiesForType(String type, ProviderService service, Properties projProps, String defaultProviderProp, config, Set removePrefixes) {
-        final executor = service.providerOfType(type)
-        final Description desc = executor.description
-
+    private void demapPropertiesForType(
+        String type,
+        PluggableProviderService service,
+        Properties projProps,
+        String defaultProviderProp,
+        config,
+        Set removePrefixes
+    ) {
+        final described = pluginService.getPluginDescriptor(type, service)
+        final Description desc = described.description
         projProps[defaultProviderProp] = type
         mapProperties(config, desc, projProps)
         accumulatePrefixesToRemoveFrom(desc, removePrefixes)
     }
-    private void addProjectServicePropertiesForType(String type, ProviderService service, Properties projProps, String defaultProviderProp, config, Set removePrefixes) {
-        final executor = service.providerOfType(type)
-        final Description desc = executor.description
 
+    private void addProjectServicePropertiesForType(
+        String type,
+        PluggableProviderService service,
+        Properties projProps,
+        String defaultProviderProp,
+        config,
+        Set removePrefixes
+    ) {
+        final described = pluginService.getPluginDescriptor(type, service)
+        final Description desc = described.description
         projProps[defaultProviderProp] = type
         mapProperties(config, desc, projProps)
         accumulatePrefixesToRemoveFrom(desc, removePrefixes)
@@ -1048,6 +1249,10 @@ class FrameworkService implements ApplicationContextAware {
         rundeckFramework.getProjectGlobals(project)
     }
 
+    Map<String, String> getProjectProperties(final String project) {
+        rundeckFramework.getFrameworkProjectMgr().getFrameworkProject(project).getProperties()
+    }
+
     String getDefaultInputCharsetForProject(final String project) {
         def config = rundeckFramework.getFrameworkProjectMgr().loadProjectConfig(project)
         String charsetname
@@ -1057,5 +1262,156 @@ class FrameworkService implements ApplicationContextAware {
             charsetname=config.getProperty("framework.$REMOTE_CHARSET")
         }
         return charsetname
+    }
+
+    /**
+     * non transactional interface to run a job from plugins
+     * {@link ExecutionService#executeJob executeJob}
+     * @return Map of the execution result.
+     */
+    Map kickJob(ScheduledExecution scheduledExecution, UserAndRolesAuthContext authContext, String user, Map input){
+        executionService.executeJob(scheduledExecution, authContext, user, input)
+    }
+
+    /**
+     * non transactional interface to bulk delete executions
+     * {@link ExecutionService#deleteBulkExecutionIds deleteBulkExecutionIds}
+     * @return [success:true/false, failures:[ [success:false, message: String, id: id],... ], successTotal:Integer]
+     */
+    Map deleteBulkExecutionIds(Collection ids, AuthContext authContext, String username) {
+        executionService.deleteBulkExecutionIds(ids,authContext,username)
+    }
+
+    /**
+     * non transactional interface to query executions
+     * {@link ExecutionService#queryExecutions queryExecutions}
+     * @return [result:result,total:total]
+     */
+    Map queryExecutions(ExecutionQuery query, int offset=0, int max=-1) {
+        executionService.queryExecutions(query,offset,max)
+    }
+
+    /**
+     * Load the input map for project configurable beans
+     * @param prefix prefix for each bean for the result
+     * @param projectInputProps input project properties
+     * @param category optional category to limit properties
+     * @return Map of [(beanName): Map [ name: String, configurable: Bean, values: demapped value Map, prefix: bean prefix] ]
+     */
+    Map<String, Map> loadProjectConfigurableInput(String prefix, Map projectInputProps, String category = null) {
+        Map<String, RundeckProjectConfigurable> projectConfigurableBeans = applicationContext.getBeansOfType(
+                RundeckProjectConfigurable
+        )
+
+        Map<String, Map> extraConfig = [:]
+        projectConfigurableBeans.each { k, v ->
+            if (k.endsWith('Profiled')) {
+                //skip profiled versions of beans
+                return
+            }
+            def categoriesMap = v.categories
+            def valid = []
+            if (category) {
+                valid = categoriesMap.keySet().findAll { k2 -> categoriesMap[k2] == category }
+                if (!valid) {
+                    return
+                }
+            } else {
+                valid = categoriesMap.keySet()
+            }
+            //construct existing values from project properties
+            Map<String, String> mapping = v.getPropertiesMapping()
+            if (category) {
+                mapping = mapping.subMap(valid)
+            }
+            def values = Validator.demapProperties(projectInputProps, mapping, true)
+            extraConfig[k] = [
+                    name        : k,
+                    configurable: v,
+                    values      : values,
+                    prefix      : prefix + k + '.',
+            ]
+        }
+        extraConfig
+    }
+    /**
+     * Validate the input to ProjectConfigurable beans
+     * @param inputMap map of name to config map for each bean name being validated
+     * @param prefix prefix string for output
+     * @param category optional category to limit validation/output
+     * @return map [errors:List, config: Map, props: Map, remove: List]
+     */
+    Map validateProjectConfigurableInput(Map<String, Map> inputMap, String prefix, Predicate<String> categoryPredicate = null) {
+        Map<String, RundeckProjectConfigurable> projectConfigurableBeans = applicationContext.getBeansOfType(
+                RundeckProjectConfigurable
+        )
+        def errors = []
+        def extraConfig = [:]
+        def projProps = [:]
+        def removePrefixes = []
+
+        projectConfigurableBeans.each { k, RundeckProjectConfigurable v ->
+            if (k.endsWith('Profiled')) {
+                //skip profiled versions of beans
+                return
+            }
+            def categoriesMap = v.categories
+            def valid = []
+            if (categoryPredicate) {
+                valid = categoriesMap.keySet().findAll { k2 -> categoryPredicate.test(categoriesMap[k2])}
+                if (!valid) {
+                    return
+                }
+            } else {
+                valid = categoriesMap.keySet()
+            }
+            //construct input values for the bean
+
+            Map input = inputMap.get(k) ?: [:]
+            def beanData = [
+                    name        : k,
+                    configurable: v,
+                    prefix      : prefix + k + '.',
+                    values      : input
+            ]
+
+            def validProps = v.getProjectConfigProperties().findAll { it.name in valid }
+            validProps.findAll { it.type == Property.Type.Boolean }.
+                    each {
+                        if (input[it.name] != 'true') {
+                            input[it.name] = 'false'
+                        }
+                    }
+            validProps.findAll { it.type == Property.Type.Options }.
+                    each {
+                        if (input[it.name] instanceof Collection) {
+                            input[it.name] = input[it.name].join(',')
+                        } else if (input[it.name] instanceof String[]) {
+                            input[it.name] = input[it.name].join(',')
+                        }
+                    }
+            //validate
+            def report = Validator.validate(input as Properties, validProps)
+            beanData.report = report
+            if (!report.valid) {
+                errors << ("Some configuration was invalid: " + report)
+            } else {
+                Map<String, String> mapping = v.getPropertiesMapping()
+                if (categoryPredicate) {
+                    mapping = mapping.subMap(valid)
+                }
+                def projvalues = Validator.performMapping(input, mapping, true)
+                projProps.putAll(projvalues)
+                //remove all previous settings
+                removePrefixes.addAll(mapping.values())
+            }
+            extraConfig[k] = beanData
+        }
+        [
+                errors: errors,
+                config: extraConfig,
+                props : projProps,
+                remove: removePrefixes
+        ]
     }
 }

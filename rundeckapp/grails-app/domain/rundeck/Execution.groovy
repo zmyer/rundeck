@@ -44,6 +44,9 @@ class Execution extends ExecutionContext {
     Execution retryExecution
     Orchestrator orchestrator;
     String userRoleList
+    String serverNodeUUID
+    Integer nodeThreadcount=1
+    Long retryOriginalId
 
     static hasOne = [logFileStorageRequest: LogFileStorageRequest]
     static transients = ['executionState', 'customStatusString', 'userRoles']
@@ -86,7 +89,7 @@ class Execution extends ExecutionContext {
         failedNodeList(nullable:true, blank:true)
         succeededNodeList(nullable:true, blank:true)
         abortedby(nullable:true, blank:true)
-        serverNodeUUID(size:36..36, blank: true, nullable: true, validator: { val, obj ->
+        serverNodeUUID(maxSize: 36, size:36..36, blank: true, nullable: true, validator: { val, obj ->
             if (null == val) return true;
             try { return null!= UUID.fromString(val) } catch (IllegalArgumentException e) {
                 return false
@@ -101,6 +104,9 @@ class Execution extends ExecutionContext {
         willRetry(nullable: true)
         nodeFilterEditable(nullable: true)
         userRoleList(nullable: true)
+        retryDelay(nullable:true)
+        successOnEmptyNodeFilter(nullable: true)
+        retryOriginalId(nullable: true)
     }
 
     static mapping = {
@@ -108,7 +114,6 @@ class Execution extends ExecutionContext {
         //mapping overrides superclass, so we need to relist these
         user column: "rduser"
         argString type: 'text'
-        logFileStorageRequest fetch: 'join'
 
         failedNodeList type: 'text'
         succeededNodeList type: 'text'
@@ -131,6 +136,7 @@ class Execution extends ExecutionContext {
         timeout( type: 'text')
         retry( type: 'text')
         userRoleList(type: 'text')
+        serverNodeUUID(type: 'string')
 
         DomainIndexHelper.generate(delegate) {
             index 'EXEC_IDX_1', ['id', 'project', 'dateCompleted']
@@ -149,6 +155,11 @@ class Execution extends ExecutionContext {
         }
         withProject{ project ->
             eq 'project', project
+        }
+        lastExecutionByUser{ user ->
+            eq 'user', user
+            maxResults 1
+            order 'dateStarted', 'desc'
         }
 	}
 
@@ -257,8 +268,14 @@ class Execution extends ExecutionContext {
         if(this.retryAttempt){
             map.retryAttempt=retryAttempt
         }
+        if(this.retryOriginalId){
+            map.retryOriginalId=retryOriginalId
+        }
         if(this.retry){
             map.retry=this.retry
+        }
+        if(this.retryDelay){
+            map.retryDelay=this.retryDelay
         }
         if(this.retryExecution){
             map.retryExecutionId=retryExecution.id
@@ -310,8 +327,14 @@ class Execution extends ExecutionContext {
         if(data.retryAttempt){
             exec.retryAttempt= XmlParserUtil.stringToInt(data.retryAttempt, 0)
         }
+        if(data.retryOriginalId){
+            exec.retryOriginalId= Long.valueOf(data.retryOriginalId)
+        }
         if(data.retry){
             exec.retry=data.retry
+        }
+        if(data.retryDelay){
+            exec.retryDelay=data.retryDelay
         }
         if(data.retryExecutionId){
             exec.retryExecution=Execution.get(data.retryExecutionId)

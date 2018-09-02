@@ -1,3 +1,1627 @@
+Release 3.0.5
+===========
+
+Date: 2018-08-28
+
+Name: <span style="color: coral"><span class="glyphicon glyphicon-camera"></span> "jalapeño popper coral camera"</span>
+
+## Notes
+
+This rescue release addresses shadowed imports due to import optimization.
+
+## Contributors
+
+* Greg Schueler (gschueler)
+
+## Bug Reporters
+
+* gschueler
+
+## Issues
+
+[Milestone 3.0.5](https://github.com/rundeck/rundeck/milestone/85)
+
+* [No such property: FrameworkProject for class: rundeck.controllers.FrameworkController](https://github.com/rundeck/rundeck/issues/3938)
+* [Add spec unit test for saveProjectNodeSources](https://github.com/rundeck/rundeck/pull/3933)
+* [Revert "cleanup: optimize imports"](https://github.com/rundeck/rundeck/pull/3931)
+
+---
+
+Release 3.0.4
+===========
+
+Date: 2018-08-27
+
+Name: <span style="color: chartreuse"><span class="glyphicon glyphicon-bullhorn"></span> "jalapeño popper chartreuse bullhorn"</span>
+
+## Notes
+
+Bug fixes
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Jaime Tobar (jtobard)
+* Romain Leon (PeekLeon)
+
+## Bug Reporters
+
+* Antoine-Auffret
+* Ehoudry
+* PeekLeon
+* gjvc
+* gschueler
+* jtobard
+
+## Issues
+
+[Milestone 3.0.4](https://github.com/rundeck/rundeck/milestone/84)
+
+* [Fix delete expired tokens button in GUI](https://github.com/rundeck/rundeck/pull/3928)
+* [fix #3921 project description back to project list on menu/home](https://github.com/rundeck/rundeck/pull/3926)
+* [rd ui : sidebar overlay - forgotten z-index](https://github.com/rundeck/rundeck/pull/3923)
+* [Rundeck 3 : Project description not displayed](https://github.com/rundeck/rundeck/issues/3921)
+* [Rundeck 3 bug : Can't delete tokens and expired tokens with UI](https://github.com/rundeck/rundeck/issues/3919)
+* [Fix #3914 NodeFilter class was shadowed by glob import](https://github.com/rundeck/rundeck/pull/3917)
+* [grails exception in 3.0.3-20180824](https://github.com/rundeck/rundeck/issues/3914)
+---
+
+Release 3.0.3
+===========
+
+Date: 2018-08-24
+
+Name: <span style="color: burlywood"><span class="glyphicon glyphicon-briefcase"></span> "jalapeño popper burlywood briefcase"</span>
+
+## Notes
+
+This release contains:
+
+* bug fixes
+* some UI updates
+* updated plugin: Ansible 2.5.0
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Jaime Tobar (jtobard)
+* Jesse Marple (jessemarple)
+* Luis Toledo (ltamaster)
+* Greg Zapp (ProTip)
+* Romain LEON (PeekLeon)
+
+## Bug Reporters
+
+* Ehoudry
+* PeekLeon
+* ProTip
+* gschueler
+* imad-almansi
+* jessemarple
+* ltamaster
+* marcoc610
+* timhughes
+
+## Issues
+
+[Milestone 3.0.3](https://github.com/rundeck/rundeck/milestone/83)
+
+* [rd ui : sidebar overlay](https://github.com/rundeck/rundeck/pull/3904)
+* [Update dom4j to 2.1.1, add required jaxen dep](https://github.com/rundeck/rundeck/pull/3897)
+* [Cleanup of Welcome page](https://github.com/rundeck/rundeck/issues/3896)
+* [#3894 cleans up the h1 and stylingof the welcome message on dashboard](https://github.com/rundeck/rundeck/pull/3895)
+* [firstRun h1 displays white text on a white background.](https://github.com/rundeck/rundeck/issues/3894)
+* [Fix #3888 activity links should be relative to app base url](https://github.com/rundeck/rundeck/pull/3892)
+* [Fix #3864 new project should be in projects list](https://github.com/rundeck/rundeck/pull/3890)
+* [project Home page: contextPath ignored for activity link](https://github.com/rundeck/rundeck/issues/3888)
+* [LDAP authentication fixing](https://github.com/rundeck/rundeck/pull/3883)
+* [UI: Job edit page: Editable filter label is not bold like the others.](https://github.com/rundeck/rundeck/issues/3879)
+* [Feature/3771/motd](https://github.com/rundeck/rundeck/pull/3873)
+* [Rundeck 3 : New project not visible](https://github.com/rundeck/rundeck/issues/3864)
+* [Updating Ansible Plugin to version 2.5.0.](https://github.com/rundeck/rundeck/pull/3859)
+* [Rundeck 3 : Text in progress bar](https://github.com/rundeck/rundeck/issues/3856)
+* [ No such property: description for class: com.dtolabs.rundeck.core.execution.impl.local.LocalNodeExecutor ](https://github.com/rundeck/rundeck/issues/3852)
+* [Project search box in home page doesn't search labels](https://github.com/rundeck/rundeck/issues/3849)
+* [Having a job as an execution step failing running jobs at the same time](https://github.com/rundeck/rundeck/issues/3818)
+* [rd ui: Job progress bar half obscured ](https://github.com/rundeck/rundeck/issues/3775)
+* [Message of the Day V2](https://github.com/rundeck/rundeck/issues/3771)
+* [Top bar shows the project name, not the project label. It should show label.](https://github.com/rundeck/rundeck/issues/3752)
+
+---
+
+Release 3.0.2
+===========
+
+Date: 2018-08-17
+
+Name: <span style="color: brown"><span class="glyphicon glyphicon-book"></span> "jalapeño popper brown book"</span>
+
+## Notes
+
+Bug fixes
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Jaime Tobar (jtobard)
+* Stephen Joyner (sjrd218)
+
+## Bug Reporters
+
+* Ehoudry
+* PeekLeon
+* camAtGitHub
+* comtaler
+* gaetanquentin
+* gschueler
+* gufertum
+* jtobard
+* ltamaster
+* moreiramarti
+* nixmomo
+
+## Issues
+
+[Milestone 3.0.2](https://github.com/rundeck/rundeck/milestone/82)
+
+* [System prop -Dserver.web.context doesn't work. (nginx is broken after upgrade 3.0.1)](https://github.com/rundeck/rundeck/issues/3851)
+* [Fix #3828 node names with / break GUI output loading](https://github.com/rundeck/rundeck/pull/3850)
+* [Fix #3840 restore jetty forwarded headers support](https://github.com/rundeck/rundeck/pull/3848)
+* [Log Storage GUI and stats improvements](https://github.com/rundeck/rundeck/pull/3847)
+* [Log Storage page confusing labels: "Progress" is not a progress measure](https://github.com/rundeck/rundeck/issues/3845)
+* [setting rundeck.jetty.connector.forwarded=true still forwards https to http](https://github.com/rundeck/rundeck/issues/3840)
+* [Fix: projectHome js, anchor, needed for pro ui plugins](https://github.com/rundeck/rundeck/pull/3837)
+* [Project description on project list api call](https://github.com/rundeck/rundeck/pull/3836)
+* [Log Output is not shown on a workflow with nodes with `/` in the name](https://github.com/rundeck/rundeck/issues/3828)
+* [API 25 list of projects : desciption empty and label missing](https://github.com/rundeck/rundeck/issues/3827)
+* [Plugin Control remove disabled plugins](https://github.com/rundeck/rundeck/pull/3822)
+* [Plugin control disabled plugins](https://github.com/rundeck/rundeck/issues/3820)
+* [Fix NFS log file storage in cluster mode](https://github.com/rundeck/rundeck/pull/3805)
+* [Cluster mode prevents partial log load from shared file system](https://github.com/rundeck/rundeck/issues/3804)
+* [fix api error 500 on scm export](https://github.com/rundeck/rundeck/pull/3802)
+* [Calendar in 'Run Job Later' function](https://github.com/rundeck/rundeck/issues/3799)
+* [Job reference steps appear as "running" even after completed](https://github.com/rundeck/rundeck/issues/3791)
+* [Problem saving api token on postgres](https://github.com/rundeck/rundeck/pull/3789)
+* [Deploying 3.0.1-20180803 on wildfly 13: java.lang.IllegalArgumentException: URI scheme is not \"file\"](https://github.com/rundeck/rundeck/issues/3787)
+* [WARN GenerationTarget encountered exception accepting command](https://github.com/rundeck/rundeck/issues/3785)
+* [Rundeck 3 : api error 500](https://github.com/rundeck/rundeck/issues/3780)
+* [Generating API Token fails with: Couldn't find user auth token: null](https://github.com/rundeck/rundeck/issues/3767)
+
+---
+
+Release 3.0.1
+===========
+
+Date: 2018-08-03
+
+Name: <span style="color: blue"><span class="glyphicon glyphicon-bell"></span> "jalapeño popper blue bell"</span>
+
+## Notes
+
+Bug fixes
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* ProTip
+* Stephen Joyner (sjrd218)
+
+## Bug Reporters
+
+* ProTip
+* harold-s
+* pchevallereau
+* sjrd218
+
+## Issues
+
+[Milestone 3.0.1](https://github.com/rundeck/rundeck/milestone/81)
+
+* [Add jetty password encoding compatibility to spring security password validation](https://github.com/rundeck/rundeck/pull/3779)
+* [Allow runtime i18n message substitutes.](https://github.com/rundeck/rundeck/pull/3772)
+* [Authentification with a encrypted password don't work](https://github.com/rundeck/rundeck/issues/3768)
+* [Rundeck 3 Date format i18n](https://github.com/rundeck/rundeck/issues/3764)
+* [Restore JAAS config compatibility with 2.x configuration and current docs.](https://github.com/rundeck/rundeck/pull/3758)
+
+---
+
+Release 3.0.0
+===========
+
+Date: 2018-07-27
+
+Name: <span style="color: aquamarine"><span class="glyphicon glyphicon-apple"></span> "jalapeño popper aquamarine apple"</span>
+
+## Notes
+
+Welcome to Rundeck 3.0, which consists of both under-the-hood changes (upgrading the underlying application framework) and visual changes (a revamped UI).
+
+The application framework upgrade from Grails 2 to Grails 3 gets a lot of technical debt off of our plate,
+and enables some long-asked-for features, such as SSO.
+
+Our new UI is just the first step on a path towards improved usability and flexibility,
+and we have big plans for more in the future.
+
+Changes in open-source Rundeck (aka "Rundeck Core") also carry over into [Rundeck Pro](https://www.rundeck.com).
+
+We are also synchronizing our Rundeck Pro and Rundeck Core release versions to make it simpler. However, not
+every release of Rundeck Pro will go in our "supported" channel. We will continue to work on the
+3.0.x development line of Rundeck Core, leading towards a supported Rundeck Pro 3.0 release to come later.
+If you are interested in trying Rundeck Pro 3.0, please visit [Rundeck Pro](https://www.rundeck.com).
+
+## Documentation
+
+Documentation is available at <http://rundeck.org/docs>.
+
+Our documentation project is ongoing, and we want your feedback: corrections, comments, and contributions.
+Please let us know how we can improve it: <https://github.com/rundeck/docs>.
+
+## Changes
+
+**Interface**
+
+*New "Jalapeño Popper" UI*
+
+The new 3.0 UI is an aesthetic update with an eye towards what comes next. Based on a new Rundeck UI Style Guide, the entire application has been reviewed and updated with more consistent interfaces that make it easier to use, enable easier enhancements and modifications, and improve cross-browser compatibility.
+
+We are still working on this: please give us feedback!
+
+**Installation**
+
+*Executable war*
+
+The "launcher jar" for Rundeck 2 is gone (long live the launcher jar). However the .war file now operates the same way. Just use the .war in the same way as the previous launcher jar, or deploy it as a webapp.
+
+*Official Docker Image*
+
+Still "incubating", we have published an offical docker image. Please give us your feedback on this 
+development effort.
+
+* [Official docker image](https://hub.docker.com/r/rundeck/rundeck/)
+
+
+**Authentication**
+
+We no longer rely on "container-based" security/authentication (i.e. web.xml auth constraints, coupled with Jetty/Tomcat authentication setup.)	We now use "Spring Security" for Grails, which moves the authentication checks into Rundeck itself.	This enables SSO, Oauth, and other types of authentication which was difficult/impossible to implement before.
+
+The default JAAS authentication method still works, so existing JAAS based configuration should operate as expected.
+
+Pre-authentication modes should work as they did before.
+
+*SSO Integration*
+
+Okta integration is included in Rundeck Pro. See [Rundeck SSO](http://rundeck.org/docs/administration/security/single-sign-on.html)
+
+## Thanks
+
+A lot of work went into the Grails 3 upgrade, many thanks especially to:
+
+* Alberto Hormazabal
+* Stephen Joyner
+
+👏👏👏
+
+## Known Issues and Limitations
+
+
+*Startup error about log4j*
+
+If you update and get an error about Log4j configuration, add a line to your rundeck-config file: `rundeck.log4j.config.file=/.../server/config/log4j.properties` and specify the correct path to a log4j.properties file.
+
+*Customizing web.xml is no longer possible*
+
+The `web.xml` file is no longer available. If you were modifying this after install before, let us know how/for what reason. (Typically modifying session timeout or auth constraints). Also, please see Authentication Changes section.
+
+Note that the [required role customization](https://github.com/rundeck/rundeck/issues/590) is no longer necessary
+
+*Must define JDBC driver class name*
+
+If using Mysql/other DBs which require a JDBC driver, be sure to specify it explicitly in the rundeck-config file, e.g. `dataSource.driverClassName=com.mysql.jdbc.Driver`
+
+*Oracle and other relational DB Support*
+
+Support for Oracle is still considered experimental.  We have confirmed that it works with oracle 12c and 11g,
+however we would like your feedback.
+
+## Upgrading
+
+For the most part, Rundeck 3.0 is drop-in compatible with existing Rundeck 2.11 installations.
+
+We recommend doing a fresh install of 3.0.0 and copying your Jobs/projects into it for testing.
+
+If you are upgrading in-place, *Be sure to backup import data/configs before upgrading.*
+
+If you are using the rundeck Launcher jar, replace it with the `.war` artifact, which can be renamed with a `.jar` extension if needed.
+
+See the *Known Issues and Limitations* notes above.
+
+
+## Additional Enhancements since Rundeck 2.11:
+
+* Limit multiple executions of a job
+* Encrypt passwords stored in configuration files
+* API additions: Retry a job based on previous execution, access metrics information
+
+## Contributors
+
+* Alberto Hormazabal (ahormazabal)
+* Davy Gabard (Kaldor37)
+* Greg Schueler (gschueler)
+* Jaime Tobar (jtobard)
+* Jijo Varghese
+* Jocelyn Thode
+* Joseph Price (PriceChild)
+* OmriShiv
+* ProTip
+* Stephen Joyner (sjrd218)
+* carlos (carlosrfranco)
+* scollector65
+
+## Bug Reporters
+
+* Kaldor37
+* Nomekrax
+* PriceChild
+* ahonor
+* ahormazabal
+* cwaltherf
+* diranged
+* gschueler
+* jijojv
+* jquick
+* jtobard
+* kino71
+* ls-initiatives
+* ltamaster
+* reno-oner
+* sebastianbello
+* sjrd218
+* turlubullu
+* wcliff
+
+## Issues
+
+[Milestone 3.0.0](https://github.com/rundeck/rundeck/milestone/76)
+
+* [Can't save node filter](https://github.com/rundeck/rundeck/issues/3740)
+* [Fix use of Oracle backend](https://github.com/rundeck/rundeck/pull/3733)
+* [Enable file option on scheduled jobs](https://github.com/rundeck/rundeck/pull/3728)
+* [Create new branch on git-export](https://github.com/rundeck/rundeck/pull/3714)
+* [Fix Error message: ORA-01795 (rd3)](https://github.com/rundeck/rundeck/pull/3705)
+* [Add metrics to API, update to APIv25](https://github.com/rundeck/rundeck/pull/3692)
+* [Limit user interactive sessions](https://github.com/rundeck/rundeck/issues/3683)
+* [First exec/job run of a new project can fail with "no matched nodes"](https://github.com/rundeck/rundeck/issues/3675)
+* [NPE on referenced Job](https://github.com/rundeck/rundeck/pull/3652)
+* [Problem wth scm+cluster using https](https://github.com/rundeck/rundeck/issues/3623)
+* [Show current API version in System Report page](https://github.com/rundeck/rundeck/issues/3598)
+* [getUserRoles ldap search attributes filter](https://github.com/rundeck/rundeck/pull/3579)
+* [Feature switch to enable job pagination](https://github.com/rundeck/rundeck/pull/3561)
+* ["Not found" when pressing cancel on job edit view in French](https://github.com/rundeck/rundeck/issues/3511)
+* [Git plugin setup page does not preserve current values in Select fields](https://github.com/rundeck/rundeck/issues/3483)
+* [Set a max file size of 25mb configurable](https://github.com/rundeck/rundeck/pull/3477)
+* [Error 400 importing projects over 128kb](https://github.com/rundeck/rundeck/issues/3476)
+* [Security Advisory: Zip Slip directory traversal vulnerability](https://github.com/rundeck/rundeck/issues/3471)
+* [Fixed various french translations](https://github.com/rundeck/rundeck/pull/3458)
+* [ACL for uuid](https://github.com/rundeck/rundeck/pull/3456)
+* [Fixed various french translations](https://github.com/rundeck/rundeck/pull/3430)
+* [importOptions missplaced in yaml/xml export.](https://github.com/rundeck/rundeck/issues/3429)
+* [Create project via API with invalid project name does not return error](https://github.com/rundeck/rundeck/issues/3423)
+* [BUG: Job Options not appearing in Duplicated Jobs](https://github.com/rundeck/rundeck/issues/3421)
+* [Using variable in Storage path job options](https://github.com/rundeck/rundeck/pull/3420)
+* [Default UI language set to En ignored - revert to browser preferred value](https://github.com/rundeck/rundeck/issues/3410)
+* [duplicate jobs page doesn't show options ](https://github.com/rundeck/rundeck/issues/3384)
+* [rundeck access log contains "Ljava.lang.String;" instead of project](https://github.com/rundeck/rundeck/issues/3379)
+* [Grails 3 Update](https://github.com/rundeck/rundeck/pull/3290)
+* [resources.xml not created](https://github.com/rundeck/rundeck/issues/3185)
+* [Can't pass option type file to a jobref](https://github.com/rundeck/rundeck/issues/2598)
+* [Using variable in Storage path job options](https://github.com/rundeck/rundeck/issues/2092)
+* [Encrypt passwords stored in configuration files](https://github.com/rundeck/rundeck/issues/2062)
+* [Don't allow starting rundeckd multiple times.](https://github.com/rundeck/rundeck/pull/1873)
+* [ACL based on a job's UUID](https://github.com/rundeck/rundeck/issues/1812)
+* [Limit Multiple Executions](https://github.com/rundeck/rundeck/issues/1387)
+* [Make the "required role" in web.xml configurable](https://github.com/rundeck/rundeck/issues/590)
+
+---
+
+Release 2.11.5
+===========
+
+Date: 2018-07-06
+
+Name: <span style="color: SeaGreen"><span class="glyphicon glyphicon-tower"></span> "cappuccino seagreen tower"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Bug fixes.
+
+This release addresses the error **ORA-01795** in `menu/home` when using Oracle
+Database with over 1000 projects.
+
+## Contributors
+
+* Jaime Tobar (jtobard)
+
+## Bug Reporters
+
+* isuftin
+* jtobard
+* sebastianbello
+
+## Issues
+
+[Milestone 2.11.5](https://github.com/rundeck/rundeck/milestone/79)
+
+* ["Cannot get property 'extid' on null object" when viewing job definition](https://github.com/rundeck/rundeck/issues/3474)
+* [NPE on referenced Job](https://github.com/rundeck/rundeck/pull/3655)
+* [Error message:  ORA-01795: maximum number of expressions in a list is 1000](https://github.com/rundeck/rundeck/issues/3526)
+* [Fix Error message: ORA-01795](https://github.com/rundeck/rundeck/pull/3650)
+
+---
+
+Release 2.11.4
+===========
+
+Date: 2018-06-07
+
+Name: <span style="color: SaddleBrown"><span class="glyphicon glyphicon-pushpin"></span> "cappuccino saddlebrown pushpin"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Bug and security fixes.
+
+This release addresses a potential security issue in processing of zip files,
+please see the this issue: [Security Advisory: Zip Slip directory traversal vulnerability #3471](https://github.com/rundeck/rundeck/issues/3471).
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Jaime Tobar (jtobard)
+* Stephen Joyner (sjrd218)
+
+## Bug Reporters
+
+* gschueler
+* jtobard
+* kino71
+
+## Issues
+
+[Milestone 2.11.4](https://github.com/rundeck/rundeck/milestone/78)
+
+* [2.11: backport bug fixes](https://github.com/rundeck/rundeck/issues/3494)
+    * [#3384 duplicate jobs page doesn't show options]((https://github.com/rundeck/rundeck/issues/3384)
+    * [#3423 Create project via API with invalid project name does not return error]((https://github.com/rundeck/rundeck/issues/3423)
+    * [2.11: Git plugin setup page does not preserve current values in Select fields](https://github.com/rundeck/rundeck/issues/3493)
+    * [backport: Zip Slip fix for 2.11](https://github.com/rundeck/rundeck/pull/3486)
+
+---
+
+Release 2.11.3
+===========
+
+Date: 2018-05-11
+
+Name: <span style="color: RoyalBlue"><span class="glyphicon glyphicon-plane"></span> "cappuccino royalblue plane"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Bug fixes
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Martin (martinbydefault)
+* Jaime Tobar (jtobard)
+* Romain LEON (PeekLeon)
+* Luis Toledo (ltamaster)
+
+## Bug Reporters
+
+* martinbydefault
+* jtobard
+* PeekLeon
+* ltamaster
+
+## Issues
+
+[Milestone 2.11.3](https://github.com/rundeck/rundeck/milestone/77)
+
+* [Documentation: fixed list not being correctly rendered](https://github.com/rundeck/rundeck/pull/3386)
+* [i18n Fix: default messages and 'by.you'](https://github.com/rundeck/rundeck/pull/3385)
+* [i18n Update: node filter help](https://github.com/rundeck/rundeck/pull/3383)
+
+---
+
+Release 2.11.2
+===========
+
+Date: 2018-05-10
+
+Name: <span style="color: Purple"><span class="glyphicon glyphicon-phone"></span> "cappuccino purple phone"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Bug fixes and one API addition (retry job from execution and failed nodes).
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Jaime Tobar (jtobard)
+* Luis Toledo (ltamaster)
+* Romain LEON (PeekLeon)
+
+## Bug Reporters
+
+* PeekLeon
+* gschueler
+* jtobard
+* ltamaster
+* ouyangxudu
+* vinillum
+
+## Issues
+
+[Milestone 2.11.2](https://github.com/rundeck/rundeck/milestone/75)
+
+* [API: Run job based on execution (retryExecId)](https://github.com/rundeck/rundeck/pull/3372)
+* [Updating py-winrm plugin to 1.0.4 on 2.11.x](https://github.com/rundeck/rundeck/pull/3370)
+* [i18n Forgotten Buttons](https://github.com/rundeck/rundeck/pull/3355)
+* [i18n Update French](https://github.com/rundeck/rundeck/pull/3354)
+* [Update guava version](https://github.com/rundeck/rundeck/pull/3352)
+* [Open a project with lots of jobs very slowly when upgrade to 2.11](https://github.com/rundeck/rundeck/issues/3345)
+* [API: Run execution with just failed nodes (retryExecId)](https://github.com/rundeck/rundeck/pull/3341)
+* [Project automatically added to jobs](https://github.com/rundeck/rundeck/issues/2976)
+
+---
+
+Release 2.11.1
+===========
+
+Date: 2018-05-04
+
+Name: <span style="color: OrangeRed"><span class="glyphicon glyphicon-paperclip"></span> "cappuccino orangered paperclip"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Bug fixes, improvements to Internationalization and French translation.
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Jaime Tobar (jtobard)
+* Romain LEON (PeekLeon)
+* Hristo Malinov (hmalinov)
+
+## Bug Reporters
+
+* PeekLeon
+* jtobard
+* PeekLeon
+* gtudan
+* PeekLeon
+* jplassnibatt
+* Daisukiookami
+* sebastianbello
+* DiegoQueiroz
+* ecarrascos
+* emiliohh
+* hmalinov
+* dandunckelman
+
+## Issues
+
+[Milestone 2.11.1](https://github.com/rundeck/rundeck/milestone/74)
+
+* [i18n translation of you](https://github.com/rundeck/rundeck/pull/3350)
+* [i18n French Date/Time Format](https://github.com/rundeck/rundeck/pull/3349)
+* [Problem with cascade delete of executions or jobs on postgresql](https://github.com/rundeck/rundeck/issues/3346)
+* [Modification of the encoding i18n French](https://github.com/rundeck/rundeck/pull/3342)
+* [PostgresException: stack depth limit exceeded when viewing a job](https://github.com/rundeck/rundeck/issues/3340)
+* [Fix bulk delete button in french translation](https://github.com/rundeck/rundeck/pull/3338)
+* [Job's step labels in logstash plugin.](https://github.com/rundeck/rundeck/issues/3333)
+* [Message when a misconfigurated job is saved.](https://github.com/rundeck/rundeck/issues/3326)
+* [Step name shown on execution page is weird (Rundeck 2.11.0)](https://github.com/rundeck/rundeck/issues/3323)
+* [Orchestrator Plugin "Random" algorithm not working as expected.](https://github.com/rundeck/rundeck/issues/3312)
+* [Missing i18n Texts](https://github.com/rundeck/rundeck/issues/3309)
+* [Node attribute `ssh-key-storage-path=` may lead to "java.lang.NullPointerException: Cannot get property 'meta' on null object"](https://github.com/rundeck/rundeck/issues/3277)
+* [ orchestrator plugin bug.](https://github.com/rundeck/rundeck/issues/3028)
+* [Rundeck init scripts updates](https://github.com/rundeck/rundeck/pull/2532)
+* [Requesting to stop the service while jobs are running doesn't fully kill the service](https://github.com/rundeck/rundeck/issues/2498)
+
+---
+
+Release 2.11.0
+===========
+
+Date: 2018-04-27
+
+Name: <span style="color: Olive"><span class="glyphicon glyphicon-music"></span> "cappuccino olive music"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+New Features:
+
+* SCM/Git plugin: 
+	* works in Cluster mode
+	* improvements to jobs page load speed
+	* can disable SCM status checks in the GUI
+* Projects: 
+	* Set a Label to display instead of the name
+	* new default: projectsStorageType defaults to `db` (see below)
+* Job reference steps:
+	* Can reference jobs via UUID as well as group/name, so you can rename jobs [#3115](https://github.com/rundeck/rundeck/pull/3115)
+	* Deleting a job will check if any steps reference the job and warn you
+	* Automatically pass job options to the job reference [#3056](https://github.com/rundeck/rundeck/pull/3056)
+	* Notifications for referenced jobs are triggered
+	* Statistics (success/duration) of referenced jobs are updated
+	* Timeout for referenced jobs is enforced
+	* Choose behavior if the referenced job is disabled: fail or pass
+	* (see [#3040](https://github.com/rundeck/rundeck/pull/3040))
+* Job Options: 
+	* Set a Label to display instead of the name
+	* Multivalue option delimiter is available in data context as `${option.name.delimiter}`/`$RD_OPTION_NAME_DELIMITER`
+* Plugins: admins can disable/enable plugins for a project in the GUI or via project config [#3122](https://github.com/rundeck/rundeck/pull/3122)
+* Job Node Threadcount: can use an option value
+* Job Notification:
+	* Can send a notification if the job duration exceeds an absolute time, or relative to the job's average [#3087](https://github.com/rundeck/rundeck/pull/3087)
+	* Separate notifications for failure vs. retryable failure (i.e.) [#2864](https://github.com/rundeck/rundeck/pull/2864)
+* Job Definition visibility ACL:
+	* A new ACL access level `view` is a subset of the `read` access level for jobs, and does not allow users to view the "Definition" tab of a Job, or download the XML/YAML definitions.
+* Plugin development:
+	* dynamic list of Select value inputs for Java plugins
+	* Documentation for LogFilter and ContentConverter plugins added
+	* Groovy Plugin DSL added for LogFilter and ContentConverter plugins
+* Execution View:
+	* Can link or redirect to the Log Output tab for Executions
+* Internationalization:
+	* Improvements, and French translation added by PeekLeon! 👏👏 🇫🇷
+* API:
+	* Added endpoints for writeable Resource Model Sources (such as built in File plugin)
+	* List project sources, retrieve node definitions from each source
+	* Writeable sources allow updating node data via API
+
+Bug fixes:
+
+* many
+
+Potentially breaking changes:
+
+**RPM spec:**
+
+The `rundeck` user/group is now created within system UID ranges [#3195](https://github.com/rundeck/rundeck/pull/3195).
+
+**ACLs: Edit Project Configuration/Nodes GUI access level requirements changed:**
+
+Previously: GUI actions "Project > Edit Configuration" and "Project > Edit Nodes" required `admin` project access. Now: only `configure` level access is required.
+
+NOTE: API behavior was always this way, so this change simply aligns the access requirements.
+
+Potential security implications:
+
+* users/roles granted `configure` access to a project will now be able to modify Project Nodes or Configuration via the GUI
+* the same users/roles would already have this access if using the API
+
+See: [#3084](https://github.com/rundeck/rundeck/pull/3084)
+
+**ACLs: Job Definition visibility**
+
+A new ACL access level `view` is a subset of the `read` access level for jobs, and does not allow users to view the "Definition" tab of a Job, or download the XML/YAML definitions.
+
+ACLs which allow `read` to Jobs, will work as before. To disallow Job Definition viewing/downloading, you should change your ACLs to only allow `view` access.
+
+**Project Storage Type is now `db` by default:**
+
+If you want to continue using filesystem storage for project config/readme/motd files, you will need to set this in your `rundeck-config.properties` before upgrading:
+
+    rundeck.projectsStorageType=filesystem
+
+Upgrading an existing `filesystem` configuration to `db` is automatic, and project configs/readme/motd will be loaded into DB storage at system startup.
+
+To encrypt the DB storage, you will need to [enable encryption for the "Project Configuration" storage layer](http://rundeck.org/docs/plugins-user-guide/bundled-plugins.html#jasypt-encryption-plugin).
+
+## Contributors
+
+* Antoine-Auffret
+* Greg Schueler (gschueler)
+* Jaime Tobar (jtobard)
+* Luis Toledo (ltamaster)
+* RNavarro (ronave)
+* Romain LEON (PeekLeon)
+* Steven Grimm
+* carlos (carlosrfranco)
+* jbguerraz
+* jtobard
+* mickymiek
+
+## Bug Reporters
+
+* MustaphaB1
+* PeekLeon
+* TomGudman
+* aaronmaxlevy
+* ahonor
+* carlosrfranco
+* csgyuricza
+* dbeckham
+* dirkniblick
+* emiliohh
+* giovanimarin
+* gschueler
+* jbguerraz
+* johnpaularthur
+* joshuaspence
+* jtobard
+* komodo472
+* ltamaster
+* makered
+* mathieuchateau
+* pawadski
+* robinwolny
+* ronave
+* sebastianbello
+
+## Issues
+
+[Milestone 2.11.0](https://github.com/rundeck/rundeck/milestone/65)
+
+* [Support groovy plugin DSL for LogFilter/ContentConverter plugins](https://github.com/rundeck/rundeck/pull/3319)
+* [Bug: Errors redirect to non-existent page when editing Nodes using GUI](https://github.com/rundeck/rundeck/issues/3317)
+* [Follow execution enhancements](https://github.com/rundeck/rundeck/pull/3304)
+* [Invalid aclpolicy yaml causes stacktrace](https://github.com/rundeck/rundeck/issues/3301)
+* [Enable Internationalization for Project config level settings](https://github.com/rundeck/rundeck/issues/3300)
+* [API: add writeable resource model endpoints](https://github.com/rundeck/rundeck/pull/3297)
+* [Internationalization of views/user/login](https://github.com/rundeck/rundeck/pull/3295)
+* [ French language selection menu ](https://github.com/rundeck/rundeck/pull/3281)
+* [Fix #3048 hide add log filter button for job refs](https://github.com/rundeck/rundeck/pull/3278)
+* [Add "Initial Execution ID" as a context variable for Job Retries jobs:](https://github.com/rundeck/rundeck/pull/3276)
+* [Make rundeck.projectsStorageType=db default](https://github.com/rundeck/rundeck/issues/3275)
+* [Fix git-import plugin error ](https://github.com/rundeck/rundeck/pull/3274)
+* [SCM import plugin error when fetching remote changes](https://github.com/rundeck/rundeck/issues/3273)
+* [Translation to french](https://github.com/rundeck/rundeck/pull/3272)
+* [Create empty resources file](https://github.com/rundeck/rundeck/pull/3271)
+* [Fixing Job Filter just show 20 jobs: https://github.com/rundeck/runde…](https://github.com/rundeck/rundeck/pull/3270)
+* [Fixing Scheduled jobs fail when using roleNameAttribute="distinguishe…](https://github.com/rundeck/rundeck/pull/3267)
+* [Fix Bug 3256](https://github.com/rundeck/rundeck/pull/3265)
+* [Disable JSON check for remote options](https://github.com/rundeck/rundeck/pull/3260)
+* [Fix #3258 add user.login info to setup input](https://github.com/rundeck/rundeck/pull/3259)
+* [BUG: "Description" field is blanked when "Project Name" is an invalid string](https://github.com/rundeck/rundeck/issues/3256)
+* [adding passphrase storage in simple configuration GUI](https://github.com/rundeck/rundeck/pull/3255)
+* [Project free form label](https://github.com/rundeck/rundeck/pull/3253)
+* [GRPC ready](https://github.com/rundeck/rundeck/pull/3251)
+* [Cannot create an empty resources.xml file](https://github.com/rundeck/rundeck/issues/3246)
+* [Scheduled jobs fail when using roleNameAttribute="distinguishedName" in the AD configuration ](https://github.com/rundeck/rundeck/issues/3242)
+* [Fix issues with test ordering](https://github.com/rundeck/rundeck/pull/3236)
+* [Correct storage type from "filesystem" to "file" (Documentation only)](https://github.com/rundeck/rundeck/pull/3230)
+* [Fix 500 error api response for running executions with invalid project name](https://github.com/rundeck/rundeck/pull/3228)
+* [Malformed Request Breaks API](https://github.com/rundeck/rundeck/issues/3223)
+* [Job Filter just show 20 jobs](https://github.com/rundeck/rundeck/issues/3221)
+* [Add "Initial Execution ID"  as a context variable for  Job Retries  jobs](https://github.com/rundeck/rundeck/issues/3207)
+* [Edit job doesn't always change the schedule owner](https://github.com/rundeck/rundeck/pull/3204)
+* [Changing RPM Spec file to add rundeck user and group within system UI…](https://github.com/rundeck/rundeck/pull/3195)
+* [Option "label" field for display name](https://github.com/rundeck/rundeck/pull/3135)
+* [Plugins control](https://github.com/rundeck/rundeck/pull/3122)
+* [Job Reference by UUID](https://github.com/rundeck/rundeck/pull/3115)
+* [Scm cluster config](https://github.com/rundeck/rundeck/pull/3102)
+* [Average notification duration enhancement](https://github.com/rundeck/rundeck/pull/3087)
+* [On Retryable Failure notification is erroneously selected by default](https://github.com/rundeck/rundeck/issues/3086)
+* [Fix #3012 admin access required to modify project config/nodes in gui](https://github.com/rundeck/rundeck/pull/3084)
+* [Allow option value for thread count](https://github.com/rundeck/rundeck/pull/3068)
+* [Checking for dynamic properties unless the step is a "plugin" type](https://github.com/rundeck/rundeck/pull/3066)
+* [Customize average duration condition for the notification plugin.](https://github.com/rundeck/rundeck/issues/3064)
+* [JobRef import options](https://github.com/rundeck/rundeck/pull/3056)
+* [Project description](https://github.com/rundeck/rundeck/pull/3054)
+* [Enhancement Request / project.ssh-key-passphrase-storage-path not shown in  "simple configuration" GUI](https://github.com/rundeck/rundeck/issues/3051)
+* [Exposing the delimiter on a environment variable for multi-valued opt…](https://github.com/rundeck/rundeck/pull/3050)
+* [GUI should not allow Log Filter to be added to a Job Reference workflow step](https://github.com/rundeck/rundeck/issues/3048)
+* [Scm speed enhancement](https://github.com/rundeck/rundeck/pull/3046)
+* [Documentation: Log Filter/Content Converter plugins](https://github.com/rundeck/rundeck/issues/3042)
+* [Better child job support](https://github.com/rundeck/rundeck/pull/3040)
+* [API: add upload endpoints for writeable model sources, replacing old resources API](https://github.com/rundeck/rundeck/issues/3037)
+* [Extend plugin interface to dynamically read configuration input choices](https://github.com/rundeck/rundeck/pull/3029)
+* [Add project description to the project table.](https://github.com/rundeck/rundeck/issues/3027)
+* [Import options defined for Job when it is added as a workflow step](https://github.com/rundeck/rundeck/issues/3022)
+* [ACLs for project admin and delete_execution are mutually exclusive](https://github.com/rundeck/rundeck/issues/3012)
+* [Enhancement request: Not able to load JSON remote options - Rundeck requires the content-type header to be set to 'application/json'](https://github.com/rundeck/rundeck/issues/2922)
+* [Job Timeout & Kill Job Does Not Halt Job Steps](https://github.com/rundeck/rundeck/issues/2911)
+* [Separate notifications for retryable failures](https://github.com/rundeck/rundeck/pull/2864)
+* [Add unicode icons to HTML page title for execution results](https://github.com/rundeck/rundeck/pull/2791)
+* [Rundeck don't update job name's reference after to change job's name](https://github.com/rundeck/rundeck/issues/2701)
+* [Exposing the delimiter on a environment variable for multi-valued options](https://github.com/rundeck/rundeck/issues/2554)
+* [Allow option value for thread count](https://github.com/rundeck/rundeck/issues/2440)
+* [job status "killed" when running a job with the job refrence error handler on multiple nodes](https://github.com/rundeck/rundeck/issues/2222)
+* [How to trigger child jobs using email notifications](https://github.com/rundeck/rundeck/issues/1841)
+* [SCM: not compatible with clustering/HA](https://github.com/rundeck/rundeck/issues/1622)
+* [Child job notifications don't trigger](https://github.com/rundeck/rundeck/issues/1574)
+* [After deleting a project, Log file storage resume might cause exception in logs](https://github.com/rundeck/rundeck/issues/1384)
+* [Feature request prevent job download as XML/YAML](https://github.com/rundeck/rundeck/issues/1167)
+* [Workflow broken after job rename](https://github.com/rundeck/rundeck/issues/1155)
+* [Feature Request: redirect to 'Log Output' tab after submitting a job instead of summary tab](https://github.com/rundeck/rundeck/issues/1144)
+* [Feature Request: job execution links with #output should take you to the actual tab](https://github.com/rundeck/rundeck/issues/1107)
+* [Feature Request: When using the retry option, allow option to suppress notifications until the last execution](https://github.com/rundeck/rundeck/issues/1067)
+* [Job delete/rename: should check whether any job references would break](https://github.com/rundeck/rundeck/issues/257)
+
+---
+
+Release 2.10.8
+===========
+
+Date: 2018-03-23
+
+Name: <span style="color: DodgerBlue"><span class="glyphicon glyphicon-bell"></span> "cafe mocha dodgerblue bell"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Bug Fixes:
+
+* Fix an issue causing Vault key storage plugin to not work
+* Fix issue with cluster mode using MSSQL or Oracle DB field types. Note: If using those DBs see [#3125](https://github.com/rundeck/rundeck/issues/3125)
+
+Enhancements:
+
+* SCM git plugin enhancements [#3192](https://github.com/rundeck/rundeck/pull/3192):
+    * Import can delete jobs which were removed from git
+    * API updated to include synch status for jobs
+    * API updated to allow specifying list of jobs to delete during import action
+
+Other changes:
+
+* Ansible plugin upgraded to version 2.3.0
+* API version &rarr; 22
+
+## Contributors
+
+* Antoine-Auffret
+* Greg Schueler (gschueler)
+* Jaime Tobar (jtobard)
+* Luis Toledo (ltamaster)
+
+## Bug Reporters
+
+* Antoine-Auffret
+* gschueler
+* jplassnibatt
+* jtobard
+* komodo472
+* ltamaster
+* sebastianbello
+
+## Issues
+
+[Milestone 2.10.8](https://github.com/rundeck/rundeck/milestone/72)
+
+* [Update/apiv22 scm import](https://github.com/rundeck/rundeck/pull/3216)
+* [API: SCM Git plugin Import action 'import-all' should be renamed to 'import-jobs'](https://github.com/rundeck/rundeck/issues/3215)
+* [fix: update dependencies flagged by snyk](https://github.com/rundeck/rundeck/pull/3213)
+* [Upgrade ansible plugin to the 2.3.0 release](https://github.com/rundeck/rundeck/pull/3202)
+* [Fix: key storage data type not set automatically with Vault plugin](https://github.com/rundeck/rundeck/pull/3196)
+* [Scm Git Import can delete jobs when git file is removed](https://github.com/rundeck/rundeck/pull/3192)
+* [correct optional options when creating a project](https://github.com/rundeck/rundeck/pull/3191)
+* [Referenced job error handlers cannot be found when job is referenced from other projects](https://github.com/rundeck/rundeck/issues/3189)
+* [Fix: Matched Nodes list is not (Auto) Refreshed in Jobs](https://github.com/rundeck/rundeck/pull/3171)
+* [Can't abort a job, message is "Unable to modify the execution"](https://github.com/rundeck/rundeck/issues/3155)
+* [serverNodeUUID field to varchar ](https://github.com/rundeck/rundeck/pull/3126)
+* [Oracle+MSSQL DB error SqlExceptionHelper](https://github.com/rundeck/rundeck/issues/3125)
+* [Log File Storage exception: NullPointerException: Cannot get property 'filetype' on null object](https://github.com/rundeck/rundeck/issues/3089)
+* [Bug / Matched Nodes list is not (Auto) Refreshed in Jobs](https://github.com/rundeck/rundeck/issues/3075)
+* [API: Scm (export/import) action inputs should include item status](https://github.com/rundeck/rundeck/issues/2330)
+
+---
+
+Release 2.10.7
+===========
+
+Date: 2018-03-05
+
+Name: <span style="color: Crimson"><span class="glyphicon glyphicon-sunglasses"></span> "cafe mocha crimson sunglasses"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Some bugfixes, and some improvements to Git SCM plugin:
+
+* Export: Option to Synchronize automatically during fetch (default: false)
+* Import: Option to Pull automatically when fetching (default: true)
+* new Clean button in the GUI: allows removing local git repo 
+* Import: automatic Tracking init during Setup, if you use a regular expression
+	* API improvement: does not require a second step after setup to initialize Git Import
+* Export: Push Remotely is checked by default when making commits
+* (see full details [#PR3152](https://github.com/rundeck/rundeck/pull/3152))
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Jaime Tobar (jtobard)
+* Rene Fragoso (ctrlrsf)
+
+## Bug Reporters
+
+* SpencerMalone
+* ctrlrsf
+* gentunian
+* jtobard
+
+## Issues
+
+[Milestone 2.10.7](https://github.com/rundeck/rundeck/milestone/71)
+
+* [SCM usability enhancement](https://github.com/rundeck/rundeck/pull/3152)
+* [PUT Project Configuration API endpoint fails w/ text/plain input](https://github.com/rundeck/rundeck/issues/3127)
+* [Documentation: add job.executionType to context variables documentation](https://github.com/rundeck/rundeck/issues/1811)
+* [Profile firstName does not accepts accents](https://github.com/rundeck/rundeck/issues/1581)
+
+---
+
+Release 2.10.6
+===========
+
+Date: 2018-02-02
+
+Name: <span style="color: CornflowerBlue"><span class="glyphicon glyphicon-grain"></span> "cafe mocha cornflowerblue grain"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Bugfix release with one enhancement.
+
+## Contributors
+
+* Greg Schueler (gschueler)
+
+## Bug Reporters
+
+* gschueler
+* jplassnibatt
+
+## Issues
+
+[Milestone 2.10.6](https://github.com/rundeck/rundeck/milestone/70)
+
+* [${config.*} plugin variables not resolving after upgrade to 2.1.1](https://github.com/rundeck/rundeck/issues/3112)
+* [Fix issue: stacktrace if missing input params to acl delete](https://github.com/rundeck/rundeck/pull/3099)
+* [Select job xml/yaml format based on selected file name in upload form](https://github.com/rundeck/rundeck/pull/3093)
+
+---
+
+Release 2.10.5
+===========
+
+Date: 2018-01-26
+
+Name: <span style="color: Chocolate"><span class="glyphicon glyphicon-piggy-bank"></span> "cafe mocha chocolate piggy bank"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+This is a bugfix release.
+
+## Contributors
+
+* Greg Schueler (gschueler)
+
+## Bug Reporters
+
+* Hackeruncle
+
+## Issues
+
+[Milestone 2.10.5](https://github.com/rundeck/rundeck/milestone/69)
+
+* [com.dtolabs.rundeck.core.NodesetEmptyException: No matched nodes: NodeSet{includes={name=hadoop39, dominant=false, }}](https://github.com/rundeck/rundeck/issues/2942)
+
+---
+
+Release 2.10.4
+===========
+
+Date: 2018-01-18
+
+Name: <span style="color: CadetBlue"><span class="glyphicon glyphicon-lamp"></span> "cafe mocha cadetblue lamp"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+This is a bug fix release.
+
+Note:  If you use MSSQL database, see the comments on this issue [PR3080](https://github.com/rundeck/rundeck/pull/3080).
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* jtobard
+
+## Bug Reporters
+
+* ikogan
+* jtobard
+* michaelm02
+
+## Issues
+
+[Milestone 2.10.4](https://github.com/rundeck/rundeck/milestone/68)
+
+* [Low isolation level as property](https://github.com/rundeck/rundeck/pull/3080)
+* [Could not rollback with auto-commit set on](https://github.com/rundeck/rundeck/issues/3079)
+* [ERROR READ_COMMITTED and SERIALIZABLE are the only valid transaction levels ](https://github.com/rundeck/rundeck/issues/3078)
+* [v2.10.2 does not work with Oracle due to incompatible transaction isolation](https://github.com/rundeck/rundeck/issues/3074)
+
+---
+
+Release 2.10.3
+===========
+
+Date: 2018-01-17
+
+Name: <span style="color: BlueViolet"><span class="glyphicon glyphicon-apple"></span> "cafe mocha blueviolet apple"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+This is a bug fix release.
+
+## Contributors
+
+* Alberto Hormazabal Cespedes (ahormazabal)
+* Greg Schueler (gschueler)
+* Jocelyn Thode
+* carlos (carlosrfranco)
+
+## Bug Reporters
+
+* alonalmog82
+* gschueler
+* houtmanj
+* jocelynthode
+* lusis
+* sebastianbello
+
+## Issues
+
+[Milestone 2.10.3](https://github.com/rundeck/rundeck/milestone/66)
+
+* [empty `adhoc:` section: Invalid ACL passes validation and causes NPE](https://github.com/rundeck/rundeck/issues/3063)
+* [api token roles magic string does not work](https://github.com/rundeck/rundeck/issues/3057)
+* [Enhancement Request /  Additional tuning parameters for checkpoint log storage configuration.](https://github.com/rundeck/rundeck/issues/3053)
+* [Documentation: checkpoint log storage tuning configuration](https://github.com/rundeck/rundeck/issues/3052)
+* [Add profile comment on how to override variables](https://github.com/rundeck/rundeck/pull/3035)
+* [null pointer on /user/generateUserToken](https://github.com/rundeck/rundeck/issues/3025)
+* [Not truncating trailing spaces/validating valid charachters in the GIT URL field of the SCM plugin](https://github.com/rundeck/rundeck/issues/2959)
+* [Use debian standard naming convention for .deb files](https://github.com/rundeck/rundeck/pull/2795)
+
+---
+
+Release 2.10.2
+===========
+
+Date: 2017-12-18
+
+Name: <span style="color: Violet"><span class="glyphicon glyphicon-tent"></span> "cafe mocha violet tent"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+This is a bug fix release.
+
+## Contributors
+
+* Adam Brett (adambrett)
+* Greg Schueler (gschueler)
+* OmriShiv
+* jtobard
+* scollector65
+
+## Bug Reporters
+
+* OmriShiv
+* adambrett
+* bzlowrance
+* gschueler
+* jtobard
+* rasebo
+* scollector65
+* sebastianbello
+
+## Issues
+
+[Milestone 2.10.2](https://github.com/rundeck/rundeck/milestone/67)
+
+* [Fix starting rundeck in /var/log/rundeck for debian](https://github.com/rundeck/rundeck/pull/3006)
+* [Missing plugin icon for provider with name containing ':'](https://github.com/rundeck/rundeck/issues/3001)
+* [API: xml error response if project delete fails is missing `code` value](https://github.com/rundeck/rundeck/issues/2999)
+* [Update of project configuration overwrites cache settings.](https://github.com/rundeck/rundeck/issues/2993)
+* [Use HttpOnly for session cookie](https://github.com/rundeck/rundeck/issues/2986)
+* [Improvement to reduce MSSQL deadlocks](https://github.com/rundeck/rundeck/pull/2985)
+* [fix: plugin resource file path validation regex slowness](https://github.com/rundeck/rundeck/pull/2983)
+* [Project does not exist: message is shown when not relevant](https://github.com/rundeck/rundeck/issues/2981)
+* [Email notification:  "Orchestrator: Plugin not found: subset" message in email body](https://github.com/rundeck/rundeck/issues/2980)
+* [Job import: some xml attributes are ignored](https://github.com/rundeck/rundeck/issues/2979)
+* [Documentation: UI Plugin development](https://github.com/rundeck/rundeck/issues/2977)
+* [Add: Job filter as a context variable](https://github.com/rundeck/rundeck/pull/2974)
+* [Documentation: document the rundeck.fileUploadService.tempfile.maxsize](https://github.com/rundeck/rundeck/issues/2971)
+* [Disable jetty session ID url parameter](https://github.com/rundeck/rundeck/issues/2970)
+* [Job import API multipleExecutions error](https://github.com/rundeck/rundeck/issues/2961)
+* [Job import API successOnEmptyNodeFilter error](https://github.com/rundeck/rundeck/issues/2931)
+* [addSupplementalRoles if No user roles found](https://github.com/rundeck/rundeck/pull/2767)
+* [commands and jobs running in /var/log/rundeck instead of /var/lib/rundeck](https://github.com/rundeck/rundeck/issues/1649)
+
+---
+
+Release 2.10.1
+===========
+
+Date: 2017-11-20
+
+Name: <span style="color: Tomato"><span class="glyphicon glyphicon-knight"></span> "cafe mocha tomato knight"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Primarily Bug fixes.
+
+Enhancements:
+
+* New: Global Variable step plugin: copy captured data values into a global context in any variable group.  E.g. data from a node step to use it in a non-node-step.
+	* Within a job, copy data to the `export.*` group, to have it available in later steps if the job is included as a Job Reference.
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Luis Toledo (ltamaster)
+* Michihito Shigemura (shigemk2)
+* jtobard
+* morihaya
+
+## Bug Reporters
+
+* JustRiedy
+* Morihaya
+* gschueler
+* jtobard
+* leonboot
+* ltamaster
+* pchevallereau
+* shigemk2
+* vinillum
+
+## Issues
+
+[Milestone 2.10.1](https://github.com/rundeck/rundeck/milestone/64)
+
+* [Improvement on load jobs page](https://github.com/rundeck/rundeck/pull/2953)
+* [Uplift variables to global (2)](https://github.com/rundeck/rundeck/pull/2952)
+* [Update dependencies: jackson-databind, commons-beanutils](https://github.com/rundeck/rundeck/pull/2949)
+* [Change the JSCH authentication error message](https://github.com/rundeck/rundeck/pull/2934)
+* [Dependency cleanup](https://github.com/rundeck/rundeck/pull/2933)
+* [Bug: cluster mode is not enabled](https://github.com/rundeck/rundeck/issues/2932)
+* [Instance scope step plugin properties not shown in Plugin listing page](https://github.com/rundeck/rundeck/issues/2924)
+* [Key browser dialog is broken for new projects](https://github.com/rundeck/rundeck/issues/2919)
+* [java.lang.IllegalStateException: stack is empty](https://github.com/rundeck/rundeck/issues/2914)
+* [Add ui plugin support for ACL editor pages](https://github.com/rundeck/rundeck/pull/2906)
+* [2.10: Edit System ACL File: cannot save after submitting invalid file](https://github.com/rundeck/rundeck/issues/2904)
+* [fix typo. uploaded ot =\> uploaded to](https://github.com/rundeck/rundeck/pull/2897)
+* [IllegalStateException: output was closed and NullPointerException](https://github.com/rundeck/rundeck/issues/2887)
+* [RXSS vulnerability](https://github.com/rundeck/rundeck/issues/2883)
+* [Fix: model source plugin failure should log project name](https://github.com/rundeck/rundeck/pull/2869)
+* [API request for invalid path returns HTML response](https://github.com/rundeck/rundeck/issues/2867)
+* [Include aws resource model source plugin](https://github.com/rundeck/rundeck/pull/2857)
+* [Fix link in administration/managing-node-sources](https://github.com/rundeck/rundeck/pull/2856)
+* [single valued options with "selected=true" fetched from remote URL no longer works](https://github.com/rundeck/rundeck/issues/2854)
+* [Activity Log - Strange column widths](https://github.com/rundeck/rundeck/issues/2823)
+* [Cannot get AuthContext without subject (Invalid session?)](https://github.com/rundeck/rundeck/issues/2710)
+* [Download job definition yaml format shows inline](https://github.com/rundeck/rundeck/issues/824)
+
+---
+
+Release 2.10.0
+===========
+
+Date: 2017-10-16
+
+Name: <span style="color: Teal"><span class="glyphicon glyphicon-glass"></span> "cafe mocha teal glass"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+New features:
+
+* GUI editable Resource Model source plugins.  Allows the xml/yaml/json resource data to be edited in the GUI.
+	* The built-in File model source can be marked as "writeable", allowing admins to edit the resources file in the GUI
+* GUI editable ACLs. Modify the aclpolicy yaml files in the GUI and see validation info.
+* Jobs can define Notifications in the event of Average Duration Exceeded
+* API updated to allow user profile modifications
+* Job Filters can specify whether a job is scheduled
+* Key Value Data capture Log Filter can capture a value and specify a hardcoded name for the variable
+
+Plus: bug fixes, documentation typo fixes
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Michihito Shigemura (shigemk2)
+* damageboy
+* jtobard
+
+## Bug Reporters
+
+* gschueler
+* jtobard
+* ltamaster
+* ronave
+* shigemk2
+
+## Issues
+
+[Milestone 2.10.0](https://github.com/rundeck/rundeck/milestone/62)
+
+* [Fix typo in tutorials/project-setup](https://github.com/rundeck/rundeck/pull/2847)
+* [Execution log storage partial checkpointing](https://github.com/rundeck/rundeck/pull/2790)
+* [Key Storage Selector doesn't work on Config Page](https://github.com/rundeck/rundeck/issues/2785)
+* [List Future Schedule on jobsAjax](https://github.com/rundeck/rundeck/pull/2778)
+* [ACL File editor](https://github.com/rundeck/rundeck/pull/2772)
+* [Feature: GUI editable File resource model sources](https://github.com/rundeck/rundeck/pull/2753)
+* [Api endpoint to modify user profile.](https://github.com/rundeck/rundeck/pull/2741)
+* [Jobs filter enhancement](https://github.com/rundeck/rundeck/pull/2733)
+* [Named pattern log filter](https://github.com/rundeck/rundeck/pull/2720)
+* [Job Notification for jobs exceeding average duration](https://github.com/rundeck/rundeck/pull/2665)
+* [API acl system level bug](https://github.com/rundeck/rundeck/issues/2569)
+
+---
+
+Release 2.9.4
+===========
+
+Date: 2017-10-13
+
+Name: <span style="color: HotPink"><span class="glyphicon glyphicon-briefcase"></span> "caffe latte hotpink briefcase"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Bugfix release.
+
+Previous changes in 2.9.0: [Relese 2.9.0](https://github.com/rundeck/rundeck/blob/v2.9.0/RELEASE.md)
+
+For more detail see [2.9.0 Changes](https://github.com/rundeck/rundeck/issues/2577)
+
+**Many Thanks** to Michihito Shigemura for increasing the signal-to-noise ratio of our documentation by
+diligently fixing numerous typos!
+
+## Contributors
+
+* Bob van Bokkem (BobVanB)
+* Greg Schueler (gschueler)
+* Krzysztof Walkowicz (krzwalko)
+* Michihito Shigemura (shigemk2)
+* damageboy
+* jtobard
+* tomcs (braintreeps)
+
+## Bug Reporters
+
+* BobVanB
+* crile
+* damageboy
+* genoaction
+* geraldh
+* gschueler
+* hugospinto
+* jtobard
+* krzwalko
+* methom90wh
+* niphlod
+* sebastianbello
+* shigemk2
+* tcsalameh
+
+## Issues
+
+[Milestone 2.9.4](https://github.com/rundeck/rundeck/milestone/63)
+
+* [Log filter plugins do not show GUI controls for input properties](https://github.com/rundeck/rundeck/issues/2835)
+* [Key value data captured in node-first workflow is not carried forward](https://github.com/rundeck/rundeck/issues/2831)
+* [Fix typo administration/installation](https://github.com/rundeck/rundeck/pull/2789)
+* [Can't view second results page in the activity view when filter is in use](https://github.com/rundeck/rundeck/issues/2787)
+* [update log message getRemoteJSON to debug](https://github.com/rundeck/rundeck/pull/2782)
+* [Switch to commonmark-java from markdownj, enable gfm tables extension](https://github.com/rundeck/rundeck/pull/2768)
+* [Missing node attribute is taken from another node](https://github.com/rundeck/rundeck/issues/2766)
+* [Add threadcount as a job context variable](https://github.com/rundeck/rundeck/pull/2759)
+* [Fix #2757 fix arguments to message code](https://github.com/rundeck/rundeck/pull/2758)
+* [Notification plugin name truncated when there's no plugin configuration properties](https://github.com/rundeck/rundeck/issues/2757)
+* [Rundeck shared data context unavailable for RemoteScriptNodeStep](https://github.com/rundeck/rundeck/issues/2734)
+* [Key Value data filter fails in sub job](https://github.com/rundeck/rundeck/issues/2732)
+* [Fix nested Job Reference](https://github.com/rundeck/rundeck/pull/2727)
+* [fix: relativeDateString tag issues](https://github.com/rundeck/rundeck/pull/2726)
+* [Improve ISO 8601 date handling with timezone when scheduling ad-hoc job](https://github.com/rundeck/rundeck/pull/2725)
+* [Referenced jobs not found by job from another project](https://github.com/rundeck/rundeck/issues/2718)
+* [Log filters: not working when referenced job is invoked](https://github.com/rundeck/rundeck/issues/2691)
+* [multi valued options with "selected=true" fetched from remote URL don't work](https://github.com/rundeck/rundeck/issues/2604)
+
+---
+
+Release 2.9.3
+===========
+
+Date: 2017-08-25
+
+Name: <span style="color: Goldenrod"><span class="glyphicon glyphicon-book"></span> "caffe latte goldenrod book"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Bugfix release.
+
+Previous changes in 2.9.0: [Relese 2.9.0](https://github.com/rundeck/rundeck/blob/v2.9.0/RELEASE.md)
+
+For more detail see [2.9.0 Changes](https://github.com/rundeck/rundeck/issues/2577)
+
+Stay tuned! We are also adding many new features to [Rundeck Pro](http://rundeck.com).
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Luis Toledo (ltamaster)
+* jtobard
+* 黑牛 (chenlingmin)
+
+## Bug Reporters
+
+* ahonor
+* chenlingmin
+* emiliohh
+* giovanimarin
+* jtobard
+* ltamaster
+
+## Issues
+
+[Milestone 2.9.3](https://github.com/rundeck/rundeck/milestone/61)
+
+* [When upload job's definition them project always is filled with the current project](https://github.com/rundeck/rundeck/issues/2715)
+* [Expose delete executions for plugins](https://github.com/rundeck/rundeck/pull/2709)
+* [Add "footer" message on login page.](https://github.com/rundeck/rundeck/pull/2692)
+* [jobref to other project uses other project's nodes](https://github.com/rundeck/rundeck/issues/2685)
+* [sync chinese message properties](https://github.com/rundeck/rundeck/pull/2678)
+* ["Next scheduled execution" message is inconsistent on Cluster Mode](https://github.com/rundeck/rundeck/issues/2677)
+* [Importing job with node intersection issue ](https://github.com/rundeck/rundeck/issues/2625)
+
+---
+
+Release 2.9.2
+===========
+
+Date: 2017-08-07
+
+Name: <span style="color: Fuchsia"><span class="glyphicon glyphicon-bell"></span> "caffe latte fuchsia bell"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Bugfix release.
+
+Previous changes in 2.9.0: [Relese 2.9.0](https://github.com/rundeck/rundeck/blob/v2.9.0/RELEASE.md)
+
+For more detail see [2.9.0 Changes](https://github.com/rundeck/rundeck/issues/2577)
+
+Stay tuned! We are also adding many new features to [Rundeck Pro](http://rundeck.com).
+
+## Contributors
+
+* Greg Schueler (gschueler)
+
+## Bug Reporters
+
+* FritsHoogland
+
+## Issues
+
+[Milestone 2.9.2](https://github.com/rundeck/rundeck/milestone/60)
+
+* [Running an ad-hoc command with ansible plugin results in java.lang.NoSuchMethodError: com.dtolabs.rundeck.core.execution.ExecutionContext.getDataContext()Ljava/util/Map;](https://github.com/rundeck/rundeck/issues/2675)
+
+---
+
+Release 2.9.1
+===========
+
+Date: 2017-08-04
+
+Name: <span style="color: ForestGreen"><span class="glyphicon glyphicon-sunglasses"></span> "caffe latte forestgreen sunglasses"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+Bugfix release.
+
+Previous changes in 2.9.0: [Relese 2.9.0](https://github.com/rundeck/rundeck/blob/v2.9.0/RELEASE.md)
+
+For more detail see [2.9.0 Changes](https://github.com/rundeck/rundeck/issues/2577)
+
+Stay tuned! We are also adding many new features to [Rundeck Pro](http://rundeck.com).
+
+## Contributors
+
+* Greg Schueler (gschueler)
+
+## Bug Reporters
+
+* gschueler
+* ltamaster
+* qicaihuoyan
+* uprooted
+
+## Issues
+
+[Milestone 2.9.1](https://github.com/rundeck/rundeck/milestone/59)
+
+* [Editing Project Configuration File](https://github.com/rundeck/rundeck/issues/2673)
+* [Fix: Execution Summary step start times show in wrong time zone](https://github.com/rundeck/rundeck/pull/2672)
+* [fix: edit project config file shows error after saving](https://github.com/rundeck/rundeck/pull/2671)
+* [Error on Log Output tab on rundeck 2.9.0](https://github.com/rundeck/rundeck/issues/2667)
+* [yum installation broken: "Transaction check error" for web.xml](https://github.com/rundeck/rundeck/issues/2666)
+
+---
+
+Release 2.9.0
+===========
+
+Date: 2017-08-03
+
+Name: <span style="color: FireBrick"><span class="glyphicon glyphicon-grain"></span> "caffe latte firebrick grain"</span>
+
+## Upgrading from Earlier versions
+
+* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+
+## Notes
+
+This release contains a number of enhancements:
+
+For more detail see [2.9.0 Changes](https://github.com/rundeck/rundeck/issues/2577)
+
+1. Data Capture/Data Passing between steps 
+	* Data capture plugin to match a regular expression in a step's log output and pass the values to later steps
+2. Log Filter Plugins
+	* These plugins can be applied to individual steps, or to the entire workflow
+	* Data type plugins can detect or mark formatted data such as JSON, CSV, HTML, Markdown, etc. and render it in the GUI
+	* Mask Passwords plugin removes any values from secure input options before it is logged
+	* Highlighting/quelling: highlight keywords or selectively quell output from verbose scripts
+	* (And of course, you can write your own plugins...)
+2. New Job and Project features: 
+	* Export a project to another Rundeck instance
+	* Copy a Job to another Project
+	* Reference a Job in another Project
+	* Check state of a job in another project
+	* Disable Job Schedules or all Executions for a project
+	* Improved Time Zone support
+	* Allow matching 0 nodes as success condition
+	* Retry delay
+4. GUI changes
+	* Rearranged the Project and System configuration pages and navigation
+	* Job workflow editor enhancements
+
+Stay tuned! We are also adding many new features to [Rundeck Pro](http://rundeck.com).
+
+## Contributors
+
+* Greg Schueler (gschueler)
+* Luis Toledo (ltamaster)
+* Marcel Dorenkamp (mdorenkamp)
+* jtobard
+
+## Bug Reporters
+
+* damageboy
+* daveres
+* gschueler
+* hiribarne
+* jtobard
+* ltamaster
+* mdorenkamp
+* mrala
+* pgressa
+* roller
+
+## Issues
+
+[Milestone 2.9.0](https://github.com/rundeck/rundeck/milestone/56)
+
+* [Project ACLS not applied to scheduled jobs, SCM context](https://github.com/rundeck/rundeck/issues/2660)
+* [Error viewing execution after deleting job using orchestrator](https://github.com/rundeck/rundeck/issues/2657)
+* [support chinese ](https://github.com/rundeck/rundeck/pull/2642)
+* [Export project to another instance](https://github.com/rundeck/rundeck/pull/2641)
+* [Activity Node Filter doesn't work as expected](https://github.com/rundeck/rundeck/issues/2640)
+* [UI updates](https://github.com/rundeck/rundeck/pull/2626)
+* [Search executions and retry jobs for plugins](https://github.com/rundeck/rundeck/pull/2617)
+* [Enable responsive css](https://github.com/rundeck/rundeck/pull/2613)
+* [Configuration GUI overhaul](https://github.com/rundeck/rundeck/pull/2611)
+* [Add GUI toggle for not wrapping long lines in the log output](https://github.com/rundeck/rundeck/issues/2608)
+* [Delay between retries](https://github.com/rundeck/rundeck/pull/2576)
+* [Add autocomplete for job name in Job Reference editor](https://github.com/rundeck/rundeck/pull/2567)
+* [Include Batix/rundeck-ansible-plugin](https://github.com/rundeck/rundeck/pull/2556)
+* [Copy job to another project](https://github.com/rundeck/rundeck/pull/2546)
+* [Passive mode for project](https://github.com/rundeck/rundeck/pull/2534)
+* [External Job State Conditional plugin.](https://github.com/rundeck/rundeck/pull/2524)
+* [Job Reference on another Project](https://github.com/rundeck/rundeck/pull/2519)
+* [Time Zone support](https://github.com/rundeck/rundeck/pull/2504)
+* [Shared data context and data passing between steps](https://github.com/rundeck/rundeck/pull/2482)
+* [Random subset orchestrator doesn't work as expected](https://github.com/rundeck/rundeck/issues/2472)
+* [Flag for success when node filter does not match any node](https://github.com/rundeck/rundeck/pull/2456)
+* [Feature Request - Support JOB Markdown output](https://github.com/rundeck/rundeck/issues/2325)
+* [Navbar invisible on mobile devices](https://github.com/rundeck/rundeck/issues/2278)
+* [Delay between retries](https://github.com/rundeck/rundeck/issues/2083)
+* [Masked Passwords are exposed if a job is run in debug mode](https://github.com/rundeck/rundeck/issues/1780)
+* [added web.xml to rpmbuild spec so it doesnt get replaced on update](https://github.com/rundeck/rundeck/pull/1591)
+* [RPM Update overwrites web.xml](https://github.com/rundeck/rundeck/issues/1590)
+* [grep ansi color log output doesn't work](https://github.com/rundeck/rundeck/issues/1463)
+* [Support custom Timezone in all views](https://github.com/rundeck/rundeck/issues/906)
+* [Scheduled job Time zone support](https://github.com/rundeck/rundeck/issues/138)
+* [Possibility to pass data between a job's steps](https://github.com/rundeck/rundeck/issues/116)
+
+---
+
 Release 2.8.4
 ===========
 

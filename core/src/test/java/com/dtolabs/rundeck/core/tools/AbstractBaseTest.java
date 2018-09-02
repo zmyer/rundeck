@@ -44,7 +44,7 @@ public abstract class AbstractBaseTest extends TestCase {
     //
     // derived modules and projects base
     //
-    private String PROJECTS_BASE = RDECK_BASE + "/" + "projects";
+    private static String PROJECTS_BASE = RDECK_BASE + "/" + "projects";
 
 
     /** hostname used for local node in test environment */
@@ -61,7 +61,7 @@ public abstract class AbstractBaseTest extends TestCase {
         return baseDir;
     }
 
-    private String projectsBase;
+    private String projectsBase = PROJECTS_BASE;
 
     public String getFrameworkProjectsBase() {
         return projectsBase;
@@ -82,11 +82,10 @@ public abstract class AbstractBaseTest extends TestCase {
             throw new RuntimeException("Caught Setup exception: " + e.getMessage(), e);
         }
         Properties properties = new Properties();
-//        properties.put("resources.source.1.type", "file");
-//        properties.put("resources.source.1.config.file", resourcesfile.getAbsolutePath());
-        properties.put("project.resources.file", resourcesfile.getAbsolutePath());
-//        properties.put("resources.source.1.config.generateFileAutomatically", "false");
-//        properties.put("resources.source.1.config.includeServerNode", "true");
+        properties.put("resources.source.1.type", "file");
+        properties.put("resources.source.1.config.file", resourcesfile.getAbsolutePath());
+        properties.put("resources.source.1.config.generateFileAutomatically", "false");
+        properties.put("resources.source.1.config.includeServerNode", "true");
 
         Set<String> prefixes=new HashSet<String>();
         prefixes.add("resources.source");
@@ -103,11 +102,10 @@ public abstract class AbstractBaseTest extends TestCase {
             throw new RuntimeException("Caught Setup exception: " + e.getMessage(), e);
         }
         Properties properties = new Properties();
-//        properties.put("resources.source.1.type", "file");
-//        properties.put("resources.source.1.config.file", resourcesfile.getAbsolutePath());
-        properties.put("project.resources.file", resourcesfile.getAbsolutePath());
-//        properties.put("resources.source.1.config.generateFileAutomatically", "false");
-//        properties.put("resources.source.1.config.includeServerNode", "true");
+        properties.put("resources.source.1.type", "file");
+        properties.put("resources.source.1.config.file", resourcesfile.getAbsolutePath());
+        properties.put("resources.source.1.config.generateFileAutomatically", "false");
+        properties.put("resources.source.1.config.includeServerNode", "true");
         return properties;
     }
     protected String getExistingFilePath(String filename, String type)
@@ -139,18 +137,20 @@ public abstract class AbstractBaseTest extends TestCase {
     }
 
     public static Framework createTestFramework() {
+        if(!new File(RDECK_BASE).exists()) {
+            configureFramework();
+        }
         return FrameworkFactory.createForFilesystem(RDECK_BASE);
     }
 
-    protected void configureFramework()
+    protected static void configureFramework()
             throws BuildException {
 
         baseDir = RDECK_BASE;
-        projectsBase = PROJECTS_BASE;
         if(new File(baseDir).exists()){
             FileUtils.deleteDir(new File(baseDir));
         }
-        File projectsDir = new File(projectsBase);
+        File projectsDir = new File(PROJECTS_BASE);
         FileUtils.deleteDir(projectsDir);
         projectsDir.mkdirs();
         new File(baseDir,"etc").mkdirs();

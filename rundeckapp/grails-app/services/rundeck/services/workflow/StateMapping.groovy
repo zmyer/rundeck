@@ -34,7 +34,6 @@ class StateMapping {
         def nodeSummaries=[:]
         def nodeSteps=[:]
         (selectedOnly?nodes:map.allNodes).each{node->
-
             def states = stepStatesForNode(map, node)
             nodeSummaries[node]=summarizeForNode(map,node, states)
             if(nodes.contains(node)){
@@ -182,6 +181,8 @@ class StateMapping {
                     def newfound=new HashMap(found)
                     newfound.stepctx = step.stepctx
                     newsteps.push(newfound)
+                }else{
+                    newsteps.push(step)
                 }
             }
         }
@@ -324,13 +325,13 @@ class StateMapping {
             return null;
         }
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
-        sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
+        sdf.setTimeZone(TimeZone.getDefault());
         sdf.format(date)
     }
 
     static Date decodeDate(String date) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
-        sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
+        sdf.setTimeZone(TimeZone.getDefault());
         sdf.parse(date)
     }
 

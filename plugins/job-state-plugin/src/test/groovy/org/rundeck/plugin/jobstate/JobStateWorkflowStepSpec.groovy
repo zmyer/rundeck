@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Rundeck, Inc. (http://rundeck.com)
+ * Copyright 2018 Rundeck, Inc. (http://rundeck.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,6 +79,45 @@ class JobStateWorkflowStepSpec extends Specification {
         true  | true  | false      | 0
         false | true  | false      | 1
         false | true  | true       | 2
+
+
+    }
+
+    def "state check shouldn't fail with or without jobProject"() {
+        given:
+        def step = new JobStateWorkflowStep()
+        step.halt = false
+        step.fail = true
+        def actualState = 'failed'
+        step.executionState =  actualState
+        step.jobUUID = 'auuid'
+        step.jobProject = jobProject
+
+
+        def context = Mock(PluginStepContext)
+        def config = [:]
+
+        when:
+        step.executeStep(context, config)
+        then:
+        1 * context.getFrameworkProject() >> 'projectName'
+        1 * context.getExecutionContext() >> Mock(ExecutionContext) {
+            getJobService() >> Mock(JobService) {
+                1 * jobForID('auuid', _) >> Mock(JobReference)
+                1 * getJobState(_) >> Mock(JobState) {
+                    getPreviousExecutionState() >> actualState
+                }
+            }
+        }
+        1 * context.getLogger() >> Mock(PluginLogger) {
+            1 * log(2, _)
+        }
+
+
+        where:
+        jobProject | _
+        null       | _
+        'project'  | _
 
 
     }

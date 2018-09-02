@@ -23,33 +23,26 @@
 */
 package com.dtolabs.rundeck.core.execution.workflow.steps.node;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.util.Map;
-
 import com.dtolabs.rundeck.core.Constants;
-import com.dtolabs.rundeck.core.execution.HandlerExecutionItem;
-import com.dtolabs.rundeck.core.execution.HasFailureHandler;
-import org.apache.log4j.Logger;
-
 import com.dtolabs.rundeck.core.common.INodeEntry;
-import com.dtolabs.rundeck.core.dispatcher.DataContextUtils;
+import com.dtolabs.rundeck.core.data.SharedDataContextUtils;
+import com.dtolabs.rundeck.core.dispatcher.ContextView;
 import com.dtolabs.rundeck.core.execution.ConfiguredStepExecutionItem;
 import com.dtolabs.rundeck.core.execution.StepExecutionItem;
 import com.dtolabs.rundeck.core.execution.workflow.StepExecutionContext;
 import com.dtolabs.rundeck.core.execution.workflow.steps.PluginStepContextImpl;
 import com.dtolabs.rundeck.core.execution.workflow.steps.StepFailureReason;
-import com.dtolabs.rundeck.core.plugins.configuration.Describable;
-import com.dtolabs.rundeck.core.plugins.configuration.Description;
-import com.dtolabs.rundeck.core.plugins.configuration.PluginAdapterUtility;
-import com.dtolabs.rundeck.core.plugins.configuration.PropertyResolver;
-import com.dtolabs.rundeck.core.plugins.configuration.PropertyResolverFactory;
-import com.dtolabs.rundeck.core.plugins.configuration.PropertyScope;
+import com.dtolabs.rundeck.core.plugins.configuration.*;
 import com.dtolabs.rundeck.core.utils.Converter;
 import com.dtolabs.rundeck.plugins.ServiceNameConstants;
 import com.dtolabs.rundeck.plugins.step.NodeStepPlugin;
 import com.dtolabs.rundeck.plugins.step.PluginStepContext;
 import com.dtolabs.rundeck.plugins.util.DescriptionBuilder;
+import org.apache.log4j.Logger;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Map;
 
 
 /**
@@ -58,7 +51,7 @@ import com.dtolabs.rundeck.plugins.util.DescriptionBuilder;
  *
  * @author Greg Schueler <a href="mailto:greg@dtosolutions.com">greg@dtosolutions.com</a>
  */
-class NodeStepPluginAdapter implements NodeStepExecutor, Describable {
+class NodeStepPluginAdapter implements NodeStepExecutor, Describable, DynamicProperties {
     protected static Logger log = Logger.getLogger(NodeStepPluginAdapter.class.getName());
 
     @Override
@@ -71,11 +64,25 @@ class NodeStepPluginAdapter implements NodeStepExecutor, Describable {
         }
     }
 
+    @Override
+    public Map<String, Object> dynamicProperties(Map<String, Object> projectAndFrameworkValues){
+        if(plugin instanceof DynamicProperties){
+            return ((DynamicProperties)plugin).dynamicProperties(projectAndFrameworkValues);
+        }
+
+        return null;
+    }
+
     private NodeStepPlugin plugin;
 
     public NodeStepPluginAdapter(final NodeStepPlugin plugin) {
         this.plugin = plugin;
     }
+
+    public static boolean canAdaptType(Class<?> testType){
+        return NodeStepPlugin.class.isAssignableFrom(testType);
+    }
+
 
     static class Convert implements Converter<NodeStepPlugin, NodeStepExecutor> {
         public NodeStepExecutor convert(final NodeStepPlugin plugin) {
@@ -92,11 +99,14 @@ class NodeStepPluginAdapter implements NodeStepExecutor, Describable {
         throws NodeStepException {
         Map<String, Object> instanceConfiguration = getStepConfiguration(item);
         if (null != instanceConfiguration) {
-            instanceConfiguration = DataContextUtils.replaceDataReferences(instanceConfiguration,
-                                                                           context.getDataContext(),
-                                                                           null,
-                                                                           false,
-                                                                           true
+            instanceConfiguration = SharedDataContextUtils.replaceDataReferences(
+                    instanceConfiguration,
+                    ContextView.node(node.getNodename()),
+                    ContextView::nodeStep,
+                    null,
+                    context.getSharedDataContext(),
+                    false,
+                    true
             );
         }
         final String providerName = item.getNodeStepType();

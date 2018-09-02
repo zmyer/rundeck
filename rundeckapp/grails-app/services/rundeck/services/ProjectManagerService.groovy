@@ -21,6 +21,7 @@ import com.codahale.metrics.MetricRegistry
 import com.dtolabs.rundeck.core.authorization.AclsUtil
 import com.dtolabs.rundeck.core.authorization.Authorization
 import com.dtolabs.rundeck.core.authorization.AuthorizationUtil
+import com.dtolabs.rundeck.core.authorization.ValidationSet
 import com.dtolabs.rundeck.core.authorization.providers.CacheableYamlSource
 import com.dtolabs.rundeck.core.authorization.providers.Policies
 import com.dtolabs.rundeck.core.authorization.providers.PoliciesCache
@@ -46,7 +47,7 @@ import com.google.common.cache.LoadingCache
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.ListenableFutureTask
-import grails.transaction.Transactional
+import grails.gorm.transactions.Transactional
 import org.apache.commons.fileupload.util.Streams
 import org.rundeck.storage.api.PathUtil
 import org.rundeck.storage.api.Resource
@@ -98,7 +99,7 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
 
     @Override
     Collection<IRundeckProject> listFrameworkProjects() {
-        return Project.findAll().collect {
+        return Project.list().collect {
             getFrameworkProject(it.name)
         }
     }
@@ -125,8 +126,8 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
 
     @Override
     boolean existsFrameworkProject(final String project) {
-        Project.withNewSession{
-            Project.findByName(project) ? true : false
+        Project.withSession{
+            Project.countByName(project) > 0
         }
     }
 
@@ -305,7 +306,7 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
     List<String> listProjectDirPaths(String projectName, String path, String pattern=null) {
         def prefix = 'projects/' + projectName
         def storagePath = prefix + (path.startsWith("/")?path:"/${path}")
-        def resources = getStorage().listDirectory(storagePath)
+        def resources = getStorage().hasDirectory(storagePath)?getStorage().listDirectory(storagePath):[]
         def outprefix=path.endsWith('/')?path.substring(0,path.length()-1):path
         resources.collect{Resource<ResourceMeta> res->
             def pathName=res.path.name + (res.isDirectory()?'/':'')
@@ -477,15 +478,39 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
         create.expand()
         return create
     }
+    public static final Map<String, String> DEFAULT_PROJ_PROPS = Collections.unmodifiableMap(
+        [
+            'resources.source.1.type'              : 'local',
+            'service.NodeExecutor.default.provider': 'jsch-ssh',
+            'service.FileCopier.default.provider'  : 'jsch-scp',
+            'project.ssh-keypath'                  :
+                new File(System.getProperty("user.home"), ".ssh/id_rsa").getAbsolutePath(),
+            'project.ssh-authentication'           : 'privateKey'
+        ]
+    )
 
     @Override
     IRundeckProject createFrameworkProject(final String projectName, final Properties properties) {
         Project found = Project.findByName(projectName)
+        def description = properties.get('project.description')
+        boolean generateInitProps = false
         if (!found) {
-            def project = new Project(name: projectName)
-            project.save()
+            def project = new Project(name: projectName, description: description)
+            project.save(failOnError: true)
+            generateInitProps = true
         }
-        def res = storeProjectConfig(projectName, properties)
+        Properties storedProps = new Properties()
+        storedProps.putAll(properties)
+        if (generateInitProps) {
+            Properties newProps = new Properties()
+            DEFAULT_PROJ_PROPS.each { k, v ->
+                if (null == properties || !properties.containsKey(k)) {
+                    newProps.setProperty(k, v);
+                }
+            }
+            storedProps.putAll(newProps)
+        }
+        def res = storeProjectConfig(projectName, storedProps)
         def rdprojectconfig = new RundeckProjectConfig(projectName,
                                                        createProjectPropertyLookup(projectName, res.config ?: new Properties()),
                                                        createDirectProjectPropertyLookup(projectName, res.config ?: new Properties()),
@@ -496,9 +521,7 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
         newproj.info = new ProjectInfo(
                 projectName: projectName,
                 projectService: this,
-                description: rdprojectconfig.hasProperty('project.description') ? rdprojectconfig.getProperty(
-                        'project.description'
-                ) : null
+                description: description? description: null
         )
         newproj.nodesFactory = nodeService
         return newproj
@@ -530,6 +553,15 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
             final Set<String> removePrefixes
     )
     {
+        if(properties['project.description'] != null ) {
+            def description = properties['project.description']
+            Project.withSession {
+                def dbproj = Project.findByName(project.name)
+                dbproj.description = description ? description : null
+                dbproj.save(flush: true)
+
+            }
+        }
         def resource=mergeProjectProperties(project.name,properties,removePrefixes)
         def rdprojectconfig = new RundeckProjectConfig(project.name,
                                                        createProjectPropertyLookup(project.name, resource.config ?: new Properties()),
@@ -551,7 +583,7 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
             throw new IllegalArgumentException("project does not exist: " + projectName)
         }
         def res = loadProjectConfigResource(projectName)
-        def oldprops = res.config
+        Properties oldprops = res?.config?:new Properties()
         Properties newprops = mergeProperties(removePrefixes, oldprops, properties)
         Map newres=storeProjectConfig(projectName, newprops)
         newres
@@ -590,9 +622,15 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
         project.nodesFactory = nodeService
     }
     Map setProjectProperties(final String projectName, final Properties properties) {
-        Project found = Project.findByName(projectName)
-        if (!found) {
-            throw new IllegalArgumentException("project does not exist: " + projectName)
+        def description = properties['project.description']
+        Project.withSession{
+            def found = Project.findByName(projectName)
+            if (!found) {
+                throw new IllegalArgumentException("project does not exist: " + projectName)
+            }
+            found.description = description?description:null
+            found.save(flush: true)
+
         }
         Map resource=storeProjectConfig(projectName, properties)
         resource
@@ -618,7 +656,7 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
         def resource = getProjectFileResource(key.project,key.path)
         def file = resource.contents
         def text =file.inputStream.getText()
-        YamlProvider.sourceFromString("[project:${key.project}]${key.path}", text, file.modificationTime)
+        YamlProvider.sourceFromString("[project:${key.project}]${key.path}", text, file.modificationTime, new ValidationSet())
     }
     /**
      * Create Authorization using project-owned aclpolicies
@@ -639,7 +677,7 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
     boolean needsReloadAcl(ProjectFile key,CacheableYamlSource source) {
 
         boolean needsReload=true
-        Storage.withNewSession {
+        Storage.withSession {
             def exists=existsProjectFileResource(key.project,key.path)
             def resource=exists?getProjectFileResource(key.project,key.path):null
             needsReload = resource == null ||
@@ -681,16 +719,16 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
         long start=System.currentTimeMillis()
         log.info("Loading project definition for ${project}...")
         def rdproject = new RundeckProject(loadProjectConfig(project), this)
+        def description = Project.withSession{
+            Project.findByName(project)?.description
+        }
         //preload cached readme/motd
         String readme = readCachedProjectFileAsAstring(project,"readme.md")
         String motd = readCachedProjectFileAsAstring(project,"motd.md")
         rdproject.info = new ProjectInfo(
                 projectName: project,
                 projectService: this,
-                description:
-                        rdproject.hasProperty('project.description')
-                                ? rdproject.getProperty('project.description')
-                                : null
+                description: description? description : null
         )
         rdproject.nodesFactory = nodeService
         log.info("Loaded project ${project} in ${System.currentTimeMillis()-start}ms")
@@ -698,7 +736,7 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
     }
 
     boolean needsReload(IRundeckProject project) {
-        Project.withNewSession {
+        Project.withSession {
             Project rdproject = Project.findByName(project.name)
             boolean needsReload = rdproject == null ||
                     project.configLastModifiedTime == null ||
@@ -718,13 +756,6 @@ class ProjectManagerService implements ProjectManager, ApplicationContextAware, 
                         }
                     }
             );
-
-    /**
-     * @return specific nodes resources file path for the project, based on the framework.nodes.file.name property
-     */
-    public String getNodesResourceFilePath(IRundeckProject project) {
-        ProjectNodeSupport.getNodesResourceFilePath(project, frameworkService.getRundeckFramework())
-    }
 
     /**
      * Import any projects that do not exist from the source

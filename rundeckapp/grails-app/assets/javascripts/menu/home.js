@@ -19,6 +19,7 @@
 //= require knockout-onenter
 //= require ko/binding-url-path-param
 //= require ko/binding-message-template
+//= require ko/binding-popover
 //= require jquery.waypoints.min
 //= require menu/project-model
 
@@ -67,8 +68,17 @@ function HomeData(data) {
         if(null==search){
             return names;
         }
+        var regex;
+        if (search.charAt(0) === '/' && search.charAt(search.length - 1) === '/') {
+            regex = new RegExp(search.substring(1, search.length - 1),'i');
+        }else{
+            //simple match which is case-insensitive, escaping special regex chars
+            regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),'i');
+        }
         return ko.utils.arrayFilter(names,function(val,ndx){
-            return val.search(search)>=0;
+            var proj = self.projectForName(val);
+            var label = proj.label();
+            return val.match(regex) || label && label.match(regex);
         });
     });
     self.searchedProjectsCount = ko.pureComputed(function () {
@@ -302,7 +312,7 @@ function initWaypoints(homedata,reset){
         Waypoint.destroyAll();
     }
 
-    batchInitWaypoints(jQuery('.list-group-item.project_list_item[data-project]'),homedata.waypointHandler,50);
+    batchInitWaypoints(jQuery('.project_list_item[data-project]'),homedata.waypointHandler,50);
 }
 
 /**

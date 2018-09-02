@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Rundeck, Inc. (http://rundeck.com)
+ * Copyright 2018 Rundeck, Inc. (http://rundeck.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,7 +106,6 @@ function addTokenRow(elem, login, tokenid) {
 function clearToken(elem) {
     var dom = jQuery(elem);
     var login = dom.find('input[name="login"]').val();
-    var nelem = $(elem).up('.userapitoken');
     var params = {login: login};
     if (dom.find('input[name="tokenid"]').length > 0) {
         params.tokenid = dom.find('input[name="tokenid"]').val();
@@ -123,7 +122,7 @@ function clearToken(elem) {
                 tokenAjaxError(data.error);
             } else if (data.result) {
                 //remove row element
-                jQuery($(elem)).fadeOut("slow");
+                jQuery(elem).fadeOut("slow");
             }
         },
         error: function (jqxhr, status, error) {

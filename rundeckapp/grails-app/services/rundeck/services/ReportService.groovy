@@ -17,8 +17,10 @@
 package rundeck.services
 
 import com.dtolabs.rundeck.app.support.ExecQuery
+import grails.gorm.transactions.Transactional
+import org.springframework.transaction.TransactionDefinition
 import rundeck.ExecReport
-
+@Transactional
 class ReportService  {
 
     def grailsApplication
@@ -170,8 +172,6 @@ class ReportService  {
         return model
     }
 
-    boolean transactional = true
-
     private def getStartsWithFilters() {
         return [
             //job filter repurposed for reportId
@@ -217,6 +217,8 @@ class ReportService  {
         def eqfilters = [
                 stat: 'status',
                 reportId: 'reportId',
+        ]
+        def jobfilters = [
                 jobId: 'jcJobId',
                 proj: 'ctxProject',
         ]
@@ -229,10 +231,8 @@ class ReportService  {
                 tags: 'tags',
         ]
 
-        def filters = [:]
-        filters.putAll(txtfilters)
-        filters.putAll(eqfilters)
-
+        //in cancel case the real stat is failed but AbortedByUser != null
+        boolean fixCancel = (query.statFilter=='cancel' && !query.abortedByFilter)
 
         delegate.with {
 
@@ -241,6 +241,13 @@ class ReportService  {
                     if (query["${key}Filter"]) {
                         ilike(val, '%' + query["${key}Filter"] + '%')
                     }
+                }
+
+                if(fixCancel){
+                    query.statFilter='fail'
+                    isNotNull('abortedByUser')
+                }else if(query.statFilter=='fail' && !query.abortedByFilter){
+                    isNull('abortedByUser')
                 }
 
                 eqfilters.each { key, val ->
@@ -269,6 +276,68 @@ class ReportService  {
                         eq(val, query["${key}Filter"])
                     }
                 }
+
+                if (query.execIdFilter) {
+                    or {
+                        'in'('jcExecId', query.execIdFilter)
+                        and{
+                                    jobfilters.each { key, val ->
+                                        if (query["${key}Filter"] == 'null') {
+                                            or {
+                                                isNull(val)
+                                                eq(val, '')
+                                            }
+                                        } else if (query["${key}Filter"] == '!null') {
+                                            and {
+                                                isNotNull(val)
+                                                ne(val, '')
+                                            }
+                                        } else if (key == 'stat' && query["${key}Filter"] == 'succeed') {
+                                            or {
+                                                eq(val, 'succeed')
+                                                eq(val, 'succeeded')
+                                                eq(val, 'true')
+                                            }
+                                        } else if (key == 'stat' && query["${key}Filter"] == 'fail') {
+                                            or {
+                                                eq(val, 'fail')
+                                                eq(val, 'failed')
+                                            }
+                                        } else if (query["${key}Filter"]) {
+                                            eq(val, query["${key}Filter"])
+                                        }
+                                    }
+                        }
+                    }
+                }else{
+                    jobfilters.each { key, val ->
+                        if (query["${key}Filter"] == 'null') {
+                            or {
+                                isNull(val)
+                                eq(val, '')
+                            }
+                        } else if (query["${key}Filter"] == '!null') {
+                            and {
+                                isNotNull(val)
+                                ne(val, '')
+                            }
+                        } else if (key == 'stat' && query["${key}Filter"] == 'succeed') {
+                            or {
+                                eq(val, 'succeed')
+                                eq(val, 'succeeded')
+                                eq(val, 'true')
+                            }
+                        } else if (key == 'stat' && query["${key}Filter"] == 'fail') {
+                            or {
+                                eq(val, 'fail')
+                                eq(val, 'failed')
+                            }
+                        } else if (query["${key}Filter"]) {
+                            eq(val, query["${key}Filter"])
+                        }
+                    }
+                }
+
                 if (query.titleFilter) {
                     or {
                         eq('jcJobId', '')
@@ -339,6 +408,9 @@ class ReportService  {
 
             }
         }
+        if(fixCancel){
+            query.statFilter='cancel'
+        }
     }
     def getExecutionReports(ExecQuery query, boolean isJobs) {
         def eqfilters = [
@@ -355,10 +427,14 @@ class ReportService  {
                 title: 'title',
                 tags: 'tags',
         ]
+        def specialfilters = [
+                execnode: 'execnode'
+        ]
 
         def filters = [:]
         filters.putAll(txtfilters)
         filters.putAll(eqfilters)
+
         def runlist=ExecReport.createCriteria().list {
 
             if (query?.max) {
@@ -388,11 +464,14 @@ class ReportService  {
                 lastDate = it.dateCompleted.time
             }
         }
-
-
-        def total = ExecReport.createCriteria().count{
-            applyExecutionCriteria(query, delegate,isJobs)
-        };
+        def minLevel = grailsApplication.config.rundeck.min?.isolation?.level
+        def isolationLevel = (minLevel && minLevel=='UNCOMMITTED')?TransactionDefinition.ISOLATION_READ_UNCOMMITTED:TransactionDefinition.ISOLATION_DEFAULT
+        def total = ExecReport.withTransaction([isolationLevel: isolationLevel]) {
+            ExecReport.createCriteria().count {
+                applyExecutionCriteria(query, delegate, isJobs)
+            }
+        }
+        filters.putAll(specialfilters)
 
         return [
             query:query,

@@ -138,7 +138,8 @@ public class PropertyUtil {
                 null,
                 validator,
                 scope,
-                renderingOptions
+                renderingOptions,
+                false
         );
     }
     /**
@@ -164,7 +165,8 @@ public class PropertyUtil {
                                    final Map<String, String> labels,
                                    final PropertyValidator validator,
                                    final PropertyScope scope,
-                                   final Map<String, Object> renderingOptions
+                                   final Map<String, Object> renderingOptions,
+                                   final boolean dynamicValues
     ) {
         switch (type) {
             case Integer:
@@ -183,7 +185,8 @@ public class PropertyUtil {
                         values,
                         labels,
                         scope,
-                        renderingOptions
+                        renderingOptions,
+                        dynamicValues
                 );
             case FreeSelect:
                 return PropertyUtil.freeSelect(name,
@@ -547,7 +550,8 @@ public class PropertyUtil {
                 selectValues,
                 null,
                 scope,
-                renderingOptions
+                renderingOptions,
+                false
         );
     }
 
@@ -567,7 +571,7 @@ public class PropertyUtil {
             final String name, final String title, final String description,
             final boolean required, final String defaultValue, final List<String> selectValues,
             final Map<String, String> selectLabels,
-            final PropertyScope scope, final Map<String, Object> renderingOptions
+            final PropertyScope scope, final Map<String, Object> renderingOptions, final boolean dynamicValues
     )
     {
 
@@ -580,7 +584,8 @@ public class PropertyUtil {
                 selectValues,
                 selectLabels,
                 scope,
-                renderingOptions
+                renderingOptions,
+                dynamicValues
         );
     }
     /**
@@ -630,7 +635,7 @@ public class PropertyUtil {
             strings.add(selectValue.name());
         }
         return new SelectProperty(name, title, description, required, defaultValue, strings, selectLabels, scope,
-                                  renderingOptions
+                                  renderingOptions, false
         );
     }
 
@@ -815,12 +820,7 @@ public class PropertyUtil {
         } else if (null == second) {
             return first;
         }
-        return new PropertyValidator() {
-            @Override
-            public boolean isValid(String value) throws ValidationException {
-                return first.isValid(value) && second.isValid(value);
-            }
-        };
+        return value -> first.isValid(value) && second.isValid(value);
     }
 
     static class FreeSelectProperty extends PropertyBase {
@@ -870,7 +870,8 @@ public class PropertyUtil {
                 final List<String> selectValues,
                 final Map<String, String> selectLabels,
                 final PropertyScope scope,
-                final Map<String, Object> renderingOptions
+                final Map<String, Object> renderingOptions,
+                final boolean dynamicValues
         )
         {
             super(
@@ -881,7 +882,7 @@ public class PropertyUtil {
                     defaultValue,
                     selectValues,
                     selectLabels,
-                    new SelectValidator(selectValues),
+                    new SelectValidator(selectValues, dynamicValues),
                     scope,
                     renderingOptions
             );
@@ -928,13 +929,16 @@ public class PropertyUtil {
     static final class SelectValidator implements PropertyValidator {
 
         final List<String> selectValues;
+        final boolean dynamicValues;
 
-        SelectValidator(final List<String> selectValues) {
+        SelectValidator(final List<String> selectValues, final boolean dynamicValues) {
             this.selectValues = selectValues;
+            this.dynamicValues = dynamicValues;
         }
 
         public boolean isValid(final String value) throws ValidationException {
-            return selectValues.contains(value);
+            //TODO: How validate this if is remote values?
+            return dynamicValues || selectValues.contains(value);
         }
     }
 
@@ -979,11 +983,7 @@ public class PropertyUtil {
         }
     }
 
-    static final PropertyValidator booleanValidator = new PropertyValidator() {
-        public boolean isValid(final String value) throws ValidationException {
-            return "true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value);
-        }
-    };
+    static final PropertyValidator booleanValidator = value -> "true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value);
 
     static final class IntegerProperty extends PropertyBase {
         public IntegerProperty(final String name, final String title, final String description, final boolean required,
@@ -998,15 +998,13 @@ public class PropertyUtil {
 
     }
 
-    static final PropertyValidator integerValidator = new PropertyValidator() {
-        public boolean isValid(final String value) throws ValidationException {
-            try {
-                java.lang.Integer.parseInt(value);
-            } catch (NumberFormatException e) {
-                throw new ValidationException("Not a valid integer");
-            }
-            return true;
+    static final PropertyValidator integerValidator = value -> {
+        try {
+            Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new ValidationException("Not a valid integer");
         }
+        return true;
     };
 
     static final class LongProperty extends PropertyBase {
@@ -1022,29 +1020,13 @@ public class PropertyUtil {
 
     }
 
-    static final PropertyValidator longValidator = new PropertyValidator() {
-        public boolean isValid(final String value) throws ValidationException {
-            try {
-                java.lang.Long.parseLong(value);
-            } catch (NumberFormatException e) {
-                throw new ValidationException("Not a valid integer");
-            }
-            return true;
+    static final PropertyValidator longValidator = value -> {
+        try {
+            Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            throw new ValidationException("Not a valid integer");
         }
+        return true;
     };
 
-    private static class Generic extends PropertyBase {
-        private final Type type;
-
-        public Generic(final String name, final String title, final String description, final boolean required,
-                       final String defaultValue,
-                       final PropertyValidator validator, final Type type) {
-            super(name, title, description, required, defaultValue, validator);
-            this.type = type;
-        }
-
-        public Type getType() {
-            return type;
-        }
-    }
 }

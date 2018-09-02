@@ -22,7 +22,7 @@
   - limitations under the License.
   --}%
 
-<g:layoutTitle default="${g.appTitle()}"/>
+      <g:layoutTitle default="${g.appTitle()}"/>
     </title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -31,22 +31,40 @@
     <link rel="favicon" href="${g.resource(dir: 'images', file: 'favicon-152.png')}"/>
     <link rel="shortcut icon" href="${g.resource(dir: 'images', file: 'favicon.ico')}"/>
     <link rel="apple-touch-icon-precomposed" href="${g.resource(dir: 'images', file: 'favicon-152.png')}"/>
-    <asset:stylesheet href="rundeck.css"/>
-    <asset:stylesheet href="ansicolor.css"/>
-    <asset:stylesheet href="non_responsive.css"/>
 
+    <!-- fontawesome -->
+    <!-- <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.10/css/all.css" integrity="sha384-+d0P83n9kaQMCwj8F4RJB66tzIwOKmrdb46+porD/OvrJ+37WqIM7UoBtwHO6Nlg" crossorigin="anonymous"> -->
+    <!-- /fontawesome -->
+    <!-- themify icons -->
+    <!-- <asset:stylesheet  href="themify.css" /> -->
+    <!-- /themify icons -->
+    <asset:stylesheet href="bootstrap.min.css"/>
+    <asset:stylesheet href="fontawesome.css"/>
+    <asset:stylesheet href="perfect-scrollbar.css"/>
+    <asset:stylesheet href="app.scss.css"/>
+    <!-- <asset:stylesheet href="custom.less.css"/> -->
+    <!-- <asset:stylesheet href="app.less.css"/> -->
+    <!-- <asset:stylesheet href="rundeck1.css"/> -->
+    <asset:stylesheet href="ansicolor.css"/>
+    <asset:stylesheet href="github-markdown.css"/>
     <asset:stylesheet href="jquery-ui.css"/>
+
     <!--[if lt IE 9]>
-    <g:javascript library="respond.min"/>
+    <asset:javascript src="respond.min.js"/>
     <![endif]-->
     <asset:javascript src="jquery.js"/>
     <asset:javascript src="jquery-ui.js"/>
     <asset:javascript src="jquery-ui-timepicker-addon.js"/>
-    <asset:javascript src="bootstrap.js"/>
-    <asset:javascript src="prototype.min.js"/>
+    <asset:javascript src="perfect-scrollbar.js"/>
+    <asset:javascript src="bootstrap-all.js"/>
+    <asset:javascript src="prototype-bundle.js"/>
     <asset:javascript src="application.js"/>
     <g:render template="/common/js"/>
     <g:render template="/common/css"/>
+
+    <!-- VUE CSS MODULES -->
+    <asset:stylesheet href="static/css/components/motd.css"/>
+    <!-- /VUE CSS MODULES -->
 
     <script language="javascript">
         function oopsEmbeddedLogin() {
@@ -116,25 +134,74 @@
 
     </g:if>
     <g:layoutHead/>
-    <g:if test="${uiplugins && uipluginsPath && params.uiplugins!='false'}">
-        <g:javascript>
-            //call after gsp page has loaded javascript
-            jQuery(function(){window.rundeckPage.onPageLoad();});
-        </g:javascript>
-    </g:if>
+    <script type=text/javascript>
+      window._rundeck = {
+        rdBase: '${g.createLink(uri:"/",absolute:true)}',
+        apiVersion: '${com.dtolabs.rundeck.app.api.ApiVersions.API_CURRENT_VERSION}',
+        projectName: '${enc(js:project?:params.project)}'
+      }
+    </script>
 </head>
-<body>
-<g:render template="/common/topbar"/>
-<div class="container">
-    <g:layoutBody/>
-</div>
-
-<div class="container footer">
-<g:render template="/common/footer"/>
-</div>
+<body class="sidebar-mini">
+  <div class="wrapper">
+    <div class="sidebar" data-background-color="black" data-active-color="danger">
+      <div class="logo">
+          <a href="${grailsApplication.config.rundeck.gui.titleLink ? enc(attr:grailsApplication.config.rundeck.gui.titleLink) : g.createLink(uri: '/')}"
+             title="Home">
+              <i class="rdicon app-logo"></i>
+              <span class="appTitle"></span>
+          </a>
+          <div class="navbar-minimize" style="margin-top:8px;">
+            <button class="btn btn-default btn-sm btn-icon">
+              <!-- <i class="fas fa-ellipsis-v"></i>
+              <i class="fas fa-ellipsis-h"></i> -->
+              <i class="fas fa-sign-out-alt fa-flip-horizontal"></i>
+              <i class="fas fa-sign-in-alt"></i>
+            </button>
+          </div>
+      </div>
+      <div class="sidebar-wrapper">
+          <g:render template="/common/sidebar"/>
+          <div class="sidebar-modal-backdrop"></div>
+      </div>
+    </div>
+    <div class="main-panel">
+      <div>
+        <g:render template="/common/mainbar"/>
+      </div>
+      <div class="content">
+        <div class="container-fluid">
+          <div id=project-motd-vue project=blah key=foo></div>
+        </div>
+        <g:layoutBody/>
+      </div>
+      <g:render template="/common/footer"/>
+    </div>
+  </div>
 <!--
-<g:profilerOutput />
+disable for now because profiler plugin is not compatible with grails 3.x
+ < g:profilerOutput />
 -->
 <miniprofiler:javascript/>
+
+<g:if test="${uiplugins && uipluginsPath && params.uiplugins!='false'}">
+    <script type="text/javascript" defer>
+        //call after gsp page has loaded javascript
+        jQuery(function(){window.rundeckPage.onPageLoad();});
+    </script>
+</g:if>
+<g:javascript>
+  var sidebarOpen = localStorage.getItem('sidebarOpen')
+  if(sidebarOpen === 'true'){
+    document.body.classList.remove('sidebar-mini')
+  }
+</g:javascript> 
+
+<!-- VUE JS MODULES -->
+<asset:javascript src="static/manifest.js"/>
+<asset:javascript src="static/vendor.js"/>
+<asset:javascript src="static/components/motd.js"/>
+<!-- /VUE JS MODULES -->
+
 </body>
 </html>

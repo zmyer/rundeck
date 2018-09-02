@@ -23,17 +23,15 @@
 */
 package com.dtolabs.rundeck.core.plugins.configuration;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.util.*;
-
 import com.dtolabs.rundeck.core.common.PropertyRetriever;
 import com.dtolabs.rundeck.core.plugins.Plugin;
 import com.dtolabs.rundeck.plugins.descriptions.*;
 import com.dtolabs.rundeck.plugins.util.DescriptionBuilder;
 import com.dtolabs.rundeck.plugins.util.PropertyBuilder;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.util.*;
 
 
 /**
@@ -205,7 +203,10 @@ public class PluginAdapterUtility {
         if (type == Property.Type.Options) {
             final SelectValues selectAnnotation = field.getAnnotation(SelectValues.class);
             if (null != selectAnnotation) {
-                pbuild.values(selectAnnotation.values());
+                String[] values = selectAnnotation.values();
+                pbuild.values(values);
+
+                extractSelectLabels(pbuild, values, field.getAnnotation(SelectLabels.class));
             }
         }else if (type == Property.Type.String) {
             StringRenderingConstants.DisplayType renderBehaviour = StringRenderingConstants.DisplayType.SINGLE_LINE;
@@ -216,7 +217,10 @@ public class PluginAdapterUtility {
                         selectAnnotation.multiOption() ? Property.Type.Options :
                         (selectAnnotation.freeSelect() ? Property.Type.FreeSelect : Property.Type.Select)
                 );
-                pbuild.values(selectAnnotation.values());
+                String[] values = selectAnnotation.values();
+                pbuild.values(values);
+                pbuild.dynamicValues(selectAnnotation.dynamicValues());
+                extractSelectLabels(pbuild, values, field.getAnnotation(SelectLabels.class));
             }
 
             if (field.getAnnotation(TextArea.class) != null) {
@@ -287,6 +291,22 @@ public class PluginAdapterUtility {
         }
 
         return pbuild.build();
+    }
+
+    private static void extractSelectLabels(
+            final PropertyBuilder pbuild,
+            final String[] values,
+            final SelectLabels labelsAnnotation
+    )
+    {
+        if (null != labelsAnnotation) {
+            String[] labels = labelsAnnotation.values();
+            HashMap<String, String> labelsMap = new HashMap<>();
+            for (int i = 0; i < values.length && i < labels.length; i++) {
+                labelsMap.put(values[i], labels[i]);
+            }
+            pbuild.labels(labelsMap);
+        }
     }
 
     private static boolean notBlank(final String string) {
@@ -561,7 +581,7 @@ public class PluginAdapterUtility {
         } else if (type == Property.Type.Select) {
             if (value instanceof String) {
                 resolvedValue = value;
-                if (!property.getSelectValues().contains((String) resolvedValue)) {
+                if (!field.getAnnotation(SelectValues.class).dynamicValues() && !property.getSelectValues().contains((String) resolvedValue)) {
                     throw new RuntimeException(
                             "value not allowed for property " + property.getName() + ": " + resolvedValue);
                 }

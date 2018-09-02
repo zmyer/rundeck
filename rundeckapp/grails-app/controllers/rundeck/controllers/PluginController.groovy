@@ -1,12 +1,24 @@
 package rundeck.controllers
 
 import com.dtolabs.rundeck.app.support.PluginResourceReq
+import com.dtolabs.rundeck.core.common.Framework
+import com.dtolabs.rundeck.core.plugins.PluginManagerService
+import com.dtolabs.rundeck.plugins.ServiceTypes
 import grails.converters.JSON
+import org.springframework.web.context.request.RequestContextHolder
 import org.springframework.web.servlet.support.RequestContextUtils
+import rundeck.services.FrameworkService
+import rundeck.services.PluginApiService
+import rundeck.services.PluginService
 import rundeck.services.UiPluginService
 
+import java.text.SimpleDateFormat
+
 class PluginController {
-    def UiPluginService uiPluginService
+    UiPluginService uiPluginService
+    PluginService pluginService
+    PluginApiService pluginApiService
+    FrameworkService frameworkService
 
     def pluginIcon(PluginResourceReq resourceReq) {
         if (resourceReq.hasErrors()) {
@@ -16,7 +28,8 @@ class PluginController {
         }
         def profile = uiPluginService.getProfileFor(resourceReq.service, resourceReq.name)
         if (!profile.icon) {
-            return respond([status: 404])
+            response.status = 404
+            return render(view: '/404')
         }
         resourceReq.path = profile.icon
         pluginFile(resourceReq)
@@ -33,7 +46,8 @@ class PluginController {
         }
         def istream = uiPluginService.openResourceForPlugin(resourceReq.service, resourceReq.name, resourceReq.path)
         if (null == istream) {
-            return respond([status: 404])
+            response.status = 404
+            return render(view: '/404')
         }
         try {
             def format = servletContext.getMimeType(resourceReq.path)
@@ -92,7 +106,7 @@ class PluginController {
 
         if (null == istream) {
             response.status = 404
-            return respond([status: 404])
+            return render(view: '/404')
         }
         if (resourceReq.path.endsWith(".properties") && response.format == 'json') {
             //parse java .properties content and emit as json
@@ -120,4 +134,69 @@ class PluginController {
             istream.close()
         }
     }
+
+    def listTest() {
+
+    }
+
+    def listPlugins() {
+        String appDate = servletContext.getAttribute('version.date')
+        String appVer = servletContext.getAttribute('version.number')
+        def pluginList = pluginApiService.listPlugins()
+        def tersePluginList = pluginList.descriptions.collect {
+            String service = it.key
+            def providers = it.value.collect { provider ->
+                def meta = frameworkService.getRundeckFramework().getPluginManager().getPluginMetadata(service,provider.name)
+                boolean builtin = meta == null
+                String ver = meta?.pluginFileVersion ?: appVer
+                String dte = meta?.pluginDate ?: appDate
+                [id:provider.name.encodeAsSHA256().substring(0,12),
+                 name:provider.name,
+                 title:provider.title,
+                 description:provider.description,
+                 builtin:builtin,
+                 pluginVersion:ver,
+                 pluginDate:toEpoch(dte),
+                 enabled:true]
+            }
+            [service: it.key,
+             desc: message(code:"framework.service.${service}.description".toString()),
+             providers: providers
+            ]
+        }
+        render(tersePluginList as JSON)
+    }
+
+    def pluginDetail() {
+        String pluginName = params.name
+        String service = params.service
+
+        def desc = pluginService.getPluginDescriptor(pluginName,ServiceTypes.TYPES[service])?.description
+        if(!desc) {
+            def psvc = frameworkService.rundeckFramework.getService(service)
+            desc = psvc.listDescriptions().find { it.name == pluginName }
+        }
+        def terseDesc = [:]
+        terseDesc.id = desc.name.encodeAsSHA256().substring(0,12)
+        terseDesc.name = desc.name
+        terseDesc.title = desc.title
+        terseDesc.desc = desc.description
+        terseDesc.props = desc.properties.collect { prop ->
+            [name: prop.name,
+             desc: prop.description,
+             title: prop.title,
+             defaultValue: prop.defaultValue,
+             required: prop.required,
+             allowed: prop.selectValues
+            ]
+        }
+
+        render(terseDesc as JSON)
+    }
+
+    private long toEpoch(String dateString) {
+        PLUGIN_DATE_FMT.parse(dateString).time
+    }
+
+    private static final SimpleDateFormat PLUGIN_DATE_FMT = new SimpleDateFormat("EEE MMM dd hh:mm:ss Z yyyy")
 }

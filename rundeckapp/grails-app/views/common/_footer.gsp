@@ -19,15 +19,16 @@
 <g:ifServletContextAttributeExists attribute="CLUSTER_MODE_ENABLED">
     <g:ifServletContextAttribute attribute="CLUSTER_MODE_ENABLED" value="true">
         <g:if test="${grailsApplication.config.rundeck?.gui?.clusterIdentityInFooter in [true, 'true']}">
-
-            <div class="row">
-                <div class="col-sm-12">
-                    <span class=" rundeck-server-uuid"
+          <footer class="footer">
+            <div class="container-fluid">
+                <div class="col-sm-12" style="padding-top: 10px; padding-bottom: 10px">
+                    <span class="rundeck-server-uuid"
                           data-server-uuid="${enc(attr: servletContextAttribute(attribute: 'SERVER_UUID'))}"
                           data-server-name="${enc(attr: servletContextAttribute(attribute: 'FRAMEWORK_NODE'))}">
                     </span>
                 </div>
             </div>
+          </footer>
         </g:if>
     </g:ifServletContextAttribute>
 </g:ifServletContextAttributeExists>
@@ -35,50 +36,27 @@
 
 <g:set var="buildIdent" value="${servletContextAttribute(attribute: 'app.ident')}"/>
 <g:set var="appId" value="${g.appTitle()}"/>
-<g:set var="versionDisplay" value="inline"/>
 
 
-<g:if test="${request.getAttribute(RequestConstants.PAGE)}">
-    <g:ifPageProperty name='meta.tabpage'>
-        <g:ifPageProperty name='meta.tabpage' equals='configure'>
-            <g:set var="versionDisplay" value="block"/>
-        </g:ifPageProperty>
-    </g:ifPageProperty>
-</g:if>
+<footer class="footer">
+  <div class="container-fluid">
+    <div class="copyright pull-left">
+        &copy; Copyright 2018 <a href="http://rundeck.com">Rundeck, Inc.</a>
 
-<div class="row row-space">
-    <div class="col-sm-12  ">
-
-        <g:if test="${versionDisplay != 'block'}">
-            <g:link controller="menu" action="welcome" class="version link-bare">
-                <g:appTitle/> ${buildIdent}
-            </g:link>
-
-            <span class="rundeck-version-identity"
-                  data-version-string="${enc(attr: buildIdent)}"
-                  data-version-date="${enc(attr: servletContextAttribute(attribute: 'version.date_short'))}"
-                  data-app-id="${enc(attr: appId)}"></span>
-        </g:if>
-        <g:if test="${versionDisplay == 'block'}">
-            <g:link controller="menu" action="welcome"
-                    class="rundeck-version-block link-bare"
-                    data-version-string="${buildIdent}"
-                    data-version-date="${servletContextAttribute(attribute: 'version.date_short')}"
-                    data-app-id="${appId}">
-            </g:link>
-        </g:if>
-        
+        All rights reserved.
     </div>
-</div>
+    <nav class="pull-right">
+        <ul>
 
-<div class="row row-space">
-    <div class="col-sm-12">
-
-    &copy; Copyright 2017 <a href="http://rundeck.com">Rundeck, Inc.</a>
-
-    All rights reserved.
-
-    <g:link controller="menu" action="licenses">Licenses</g:link>
-
-    </div>
-</div>
+            <li>
+                <g:link controller="menu" action="licenses"><g:message code="licenses"/></g:link>
+            </li>
+            <li>
+                <a href="${enc(attr: g.helpLinkUrl())}" class="help ">
+                    <g:message code="help"/>
+                </a>
+            </li>
+        </ul>
+    </nav>
+  </div>
+</footer>

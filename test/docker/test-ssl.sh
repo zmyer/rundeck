@@ -1,19 +1,20 @@
 #!/bin/bash
 
+set -euo pipefail
+
 . common.sh
 
 export DOCKER_COMPOSE_SPEC=docker-compose-ssl-test.yml
 
-if [ -f rundeck-launcher.jar ] ; then
-	mv rundeck-launcher.jar dockers/rundeck/data/
+if [ -f rundeck-launcher.war ] ; then
+	mv rundeck-launcher.war dockers/rundeck/data/
 fi
 
 if [ -f rd.deb ] ; then
 	mv rd.deb dockers/rundeck/data/
 fi
 
-# tickle installer for it to rebuild
-#date > dockers/rundeck/rundeckpro-installer/build_control
+build_rdtest_docker
 
 # clean up docker env
 docker-compose -f $DOCKER_COMPOSE_SPEC down --volumes --remove-orphans
@@ -30,7 +31,8 @@ echo "up completed, running tests..."
 
 set +e
 
-docker-compose -f $DOCKER_COMPOSE_SPEC exec -T --user rundeck rundeck1 bash scripts/run_tests.sh /tests/ssltests
+docker-compose -f $DOCKER_COMPOSE_SPEC exec -T --user rundeck rundeck1 \
+	bash scripts/run_tests.sh /tests/ssltests /tests/run-tests.sh testproj1
 
 EC=$?
 echo "run_tests.sh finished with: $EC"

@@ -73,7 +73,8 @@
             </g:if>
 
 
-        <td class="eventtitle ${rpt?.jcJobId ? 'job' : 'adhoc'} autoclickable" colspan="${rpt?.jcJobId?1:2}">
+            <g:set var="hasJobArgs" value="${rpt?.jcJobId && execution && execution.argString}"/>
+        <td class="eventtitle ${rpt?.jcJobId ? 'job' : 'adhoc'} autoclickable" colspan="${hasJobArgs?1:2}">
             <g:link controller="execution" action="show" id="${rpt.jcExecId}" class="_defaultAction"
                 params="[project:execution?execution.project:rpt.ctxProject?:params.project]"
                     title="View execution output" absolute="${absoluteLinks}">#<g:enc>${rpt.jcExecId}</g:enc></g:link>
@@ -84,7 +85,7 @@
                         <g:enc>${foundJob.groupPath ? foundJob.groupPath+'/':''}${foundJob.jobName}</g:enc>
                     </g:if>
                     <g:else>
-                        <span class="text-muted">(<g:message
+                        <span class="text-primary">(<g:message
                                 code="domain.ScheduledExecution.title"/> ID <g:enc>${it.jcJobId}</g:enc> has been deleted)</span>
                     </g:else>
 
@@ -105,7 +106,7 @@
                 <span class="exec-status-text custom-status">${execution.status}</span>
             </g:if>
         </td>
-            <g:if test="${rpt?.jcJobId}">
+            <g:if test="${rpt?.jcJobId && execution && execution.argString}">
         <td class="eventargs autoclickable">
             <div class="argstring-scrollable">
             <g:if test="${execution && execution.argString}">
@@ -127,14 +128,14 @@
                     <g:if test="${it?.dateStarted?.getTime() < it?.dateCompleted?.getTime()}">
                         <span title="<g:relativeDate atDate='${it?.dateStarted}'/> to <g:relativeDate
                                 atDate='${it?.dateCompleted}'/> ">
-                            in <g:relativeDate end="${it?.dateCompleted}" start="${it?.dateStarted}"/>
+                            <g:message code="in.of" default="in"/> <g:relativeDate end="${it?.dateCompleted}" start="${it?.dateStarted}"/>
                         </span>
                     </g:if>
                 </g:if>
             </td>
 
             <td class="  user autoclickable" style="white-space: nowrap;text-overflow: ellipsis; overflow: hidden" title="by ${it?.author==session.user?'you':it.author}">
-                <em>by</em>
+                <em><g:message code="by" default="by"/></em>
                 <g:username user="${it?.author}"/>
             </td>
 

@@ -21,7 +21,7 @@
     <meta name="layout" content="base"/>
     <meta name="tabpage" content="jobs"/>
     <title><g:appTitle/> - <g:enc>${scheduledExecution?.jobName}</g:enc></title>
-    <g:javascript library="prototype/effects"/>
+    <asset:javascript src="prototype/effects"/>
     <asset:javascript src="menu/joboptions.js"/>
     <asset:javascript src="menu/jobs.js"/>
     <asset:javascript src="util/markdeep.js"/>
@@ -53,7 +53,10 @@
             "use strict";
             var params = loadJsonData('jobParams');
             var jobNodeFilters = initJobNodeFilters(params);
-            ko.applyBindings(jobNodeFilters, document.getElementById('definition'));
+            var elementById = document.getElementById('definition');
+            if(elementById){
+                ko.applyBindings(jobNodeFilters, elementById);
+            }
 
             pagehistory = new History(appLinks.reportsEventsAjax, appLinks.menuNowrunningAjax);
             ko.applyBindings(pagehistory, document.getElementById('activity_section'));

@@ -56,8 +56,6 @@ import com.dtolabs.rundeck.server.plugins.services.ScmExportPluginProviderServic
 import com.dtolabs.rundeck.server.plugins.services.ScmImportPluginProviderService
 import rundeck.ScheduledExecution
 import rundeck.User
-import rundeck.codecs.JobsXMLCodec
-import rundeck.codecs.JobsYAMLCodec
 import rundeck.services.scm.ContextJobImporter
 import rundeck.services.scm.ResolvedJobImporter
 import rundeck.services.scm.ScmPluginConfig
@@ -275,6 +273,9 @@ class ScmService {
     }
 
     private String pathForConfigFile(String integration) {
+        if(frameworkService.isClusterModeEnabled()){ //universal config for cluster
+            return "etc/scm-${integration}.properties"
+        }
         if (frameworkService.serverUUID) {
             return "${frameworkService.serverUUID}/etc/scm-${integration}.properties"
         }
@@ -482,9 +483,10 @@ class ScmService {
         { JobChangeEvent event, JobSerializer serializer ->
             log.debug("job change event: " + event)
             if(event.eventType == JobChangeEvent.JobChangeEventType.CREATE){
+                def metadata = jobMetadataService.getJobPluginMeta(event.jobReference.project, event.jobReference.id, 'scm-import')
                 //generate "source" UUID in case the local UUID will not be exported
                 jobMetadataService.setJobPluginMeta(event.jobReference.project, event.jobReference.id, 'scm-import',[
-                        srcId:UUID.randomUUID().toString()
+                        srcId:(metadata?.srcId)?:UUID.randomUUID().toString()
                 ])
             }
             JobScmReference scmRef = scmJobRef(event.jobReference, serializer)
@@ -583,7 +585,7 @@ class ScmService {
      * @return
      */
     ScmOperationContext scmOperationContext(String username, List<String> roles, String project) {
-        scmOperationContext(frameworkService.getAuthContextForUserAndRoles(username, roles), project)
+        scmOperationContext(frameworkService.getAuthContextForUserAndRolesAndProject(username, roles, project), project)
     }
 
     /**
@@ -626,6 +628,37 @@ class ScmService {
         loaded?.provider?.cleanup()
 
     }
+
+    /**
+     * Clean a previously configured plugin
+     * @param integration integration name
+     * @param project project name
+     * @param type plugin type
+     * @return
+     */
+    def cleanPlugin(String integration, String project, String type,UserAndRolesAuthContext auth) {
+        ScmPluginConfigData scmPluginConfig = pluginConfigService.loadScmConfig(
+                project,
+                pathForConfigFile(integration),
+                PREFIXES[integration]
+        )
+
+        if (scmPluginConfig) {
+            if (scmPluginConfig.type != type) {
+                throw new IllegalArgumentException("Plugin type ${type} for ${integration} is not configured")
+            }
+            scmPluginConfig.enabled = false
+            storeConfig(scmPluginConfig, project, integration)
+        }
+
+        def context = scmOperationContext(auth, project)
+        def loaded = loadPluginWithConfig(integration, context, type, scmPluginConfig.config)
+        loaded?.provider?.totalClean()
+
+    }
+
+
+
 
     /**
      * Disable and remove all plugins for a project
@@ -1027,8 +1060,16 @@ class ScmService {
      * @param jobs
      * @return
      */
-    Map<String, JobState> exportStatusForJobs(List<ScheduledExecution> jobs) {
+    Map<String, JobState> exportStatusForJobs(UserAndRolesAuthContext auth, List<ScheduledExecution> jobs) {
         def status = [:]
+        def clusterMode = frameworkService.isClusterModeEnabled()
+        if(jobs && jobs.size()>0 && clusterMode){
+            def project = jobs.get(0).project
+            if(auth){
+                fixExportStatus(auth, project, jobs)
+            }
+        }
+
         exportjobRefsForJobs(jobs).each { jobReference ->
             def plugin = getLoadedExportPluginFor jobReference.project
             if (plugin) {
@@ -1044,8 +1085,30 @@ class ScmService {
      * @param jobs
      * @return
      */
-    Map<String, JobImportState> importStatusForJobs(List<ScheduledExecution> jobs) {
+    Map<String, JobState> exportStatusForJob(ScheduledExecution job) {
         def status = [:]
+        def jobReference = exportJobRef(job)
+        def plugin = getLoadedExportPluginFor jobReference.project
+        if (plugin) {
+            def originalPath = getRenamedPathForJobId(jobReference.project, jobReference.id)
+            status[jobReference.id] = plugin.getJobStatus(jobReference, originalPath, false)
+            log.debug("Status for job ${jobReference}: ${status[jobReference.id]}, origpath: ${originalPath}")
+        }
+
+        status
+    }
+    /**
+     * Return a map of status for jobs
+     * @param jobs
+     * @return
+     */
+    Map<String, JobImportState> importStatusForJobs(UserAndRolesAuthContext auth, List<ScheduledExecution> jobs) {
+        def status = [:]
+        def clusterMode = frameworkService.isClusterModeEnabled()
+        if(jobs && jobs.size()>0 && clusterMode){
+            def project = jobs.get(0).project
+            fixImportStatus(auth,project,jobs)
+        }
         scmJobRefsForJobs(jobs).each { JobScmReference jobReference ->
             def plugin = getLoadedImportPluginFor jobReference.project
             if (plugin) {
@@ -1054,6 +1117,21 @@ class ScmService {
                 status[jobReference.id] = plugin.getJobStatus(jobReference)
                 log.debug("Status for job ${jobReference}: ${status[jobReference.id]},")
             }
+        }
+        status
+    }
+    /**
+     * Return a map of status for jobs
+     * @param jobs
+     * @return
+     */
+    Map<String, JobImportState> importStatusForJob(ScheduledExecution job) {
+        def status = [:]
+        JobScmReference jobReference = scmJobRef(job)
+        def plugin = getLoadedImportPluginFor jobReference.project
+        if (plugin) {
+            status[jobReference.id] = plugin.getJobStatus(jobReference)
+            log.debug("Status for job ${jobReference}: ${status[jobReference.id]},")
         }
         status
     }
@@ -1175,10 +1253,14 @@ class ScmService {
             UserAndRolesAuthContext auth,
             String project,
             Map config,
-            List<String> chosenTrackedItems
+            List<String> chosenTrackedItems,
+            List<String> jobIdsToDelete = null
     )
     {
         log.debug("performImportAction project: ${project}, items: ${chosenTrackedItems}")
+        if(jobIdsToDelete){
+            log.debug("Job IDs to delete: ${jobIdsToDelete}")
+        }
         //store config
         def plugin = getLoadedImportPluginFor project
         def context = scmOperationContext(auth, project)
@@ -1193,7 +1275,11 @@ class ScmService {
         def jobImporter = new ResolvedJobImporter(context, scmJobImporter)
 
         try {
-            result = plugin.scmImport(context, actionId, jobImporter, chosenTrackedItems, config)
+            if(!jobIdsToDelete){
+                result = plugin.scmImport(context, actionId, jobImporter, chosenTrackedItems, config)
+            }else{
+                result = plugin.scmImport(context, actionId, jobImporter, chosenTrackedItems, jobIdsToDelete, config)
+            }
         } catch (ScmPluginInvalidInput e) {
             return [valid: false, report: e.report]
         } catch (ScmPluginException e) {
@@ -1238,6 +1324,24 @@ class ScmService {
         return pluginConfig.getSettingList('trackedItems')
     }
 
+    public fixExportStatus(UserAndRolesAuthContext auth, String project, List<ScheduledExecution> jobs){
+        def context = scmOperationContext(auth, project)
+        if(jobs && jobs.size()>0){
+            def joblist = exportjobRefsForJobs(jobs)
+            def plugin = getLoadedExportPluginFor project
+            plugin?.clusterFixJobs(context, joblist)
+        }
+    }
+
+    public fixImportStatus(UserAndRolesAuthContext auth, String project, List<ScheduledExecution> jobs){
+        def context = scmOperationContext(auth, project)
+        if(jobs && jobs.size()>0){
+            def joblist = scmJobRefsForJobs(jobs)
+            def plugin = getLoadedImportPluginFor project
+            plugin?.clusterFixJobs(context, joblist)
+        }
+
+    }
 
 }
 

@@ -43,18 +43,18 @@
             <b class="glyphicon glyphicon-play"></b>
         </g:link>
     </g:if>
-    <button type="button" class="btn ${enc(attr: btnClass ?: ' btn-default btn-sm btn-link')} dropdown-toggle"
+    <button type="button" class="btn ${enc(attr: btnClass ?: ' btn-default btn-sm')} dropdown-toggle"
             data-toggle="dropdown"
             aria-expanded="false">
         <g:if test="${!hideIcon}">
         <i class="glyphicon glyphicon-list"></i>
         </g:if>
         <g:if test="${!hideTitle}">
-            <g:message code="button.Action"/>
+            <!-- <g:message code="button.Action"/> -->
         </g:if>
         <span class="caret"></span>
     </button>
-    <ul class="dropdown-menu" role="menu">
+    <ul class="dropdown-menu dropdown-menu-right" role="menu">
         <g:render template="/scheduledExecution/jobActionButtonMenuContent" model="[scheduledExecution:scheduledExecution]"/>
     </ul>
 </div>
@@ -252,7 +252,31 @@ jQuery(function(){
                                     </div>
                                 </div>
                             </auth:resourceAllowed>
+                            <br/>
+                            <g:if test="${parentList}">
+                                <div class="form-group">
+                                    <div class="col-sm-10 warn note">
+                                        <g:message code="delete.referenced.job"/>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                   <div class="col-sm-10">
+                                       <ul>
 
+                                    <g:each var="job" in="${parentList}">
+                                        <li>
+                                        <span class=" wfitem jobtype" title="">
+                                        <g:link controller="scheduledExecution" action="show" id="${job.extid}">
+                                            <i class="glyphicon glyphicon-book"></i>
+                                            ${(job.groupPath?job.groupPath+'/':'')+job.jobName+(scheduledExecution.project!=job.project?' ('+job.project+')':'')}
+                                        </g:link>
+                                        </span>
+                                        </li>
+                                    </g:each>
+                                       </ul>
+                                   </div>
+                                </div>
+                            </g:if>
                         </div>
 
                         <div class="modal-footer">

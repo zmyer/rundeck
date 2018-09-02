@@ -19,6 +19,8 @@
     <g:set var="currentProject" value="${params.project?:request.project}"/>
     <g:set var="projParams" value="${currentProject?[project:currentProject]:[:]}"/>
     var appLinks = {
+        api_version: '${com.dtolabs.rundeck.app.api.ApiVersions.API_CURRENT_VERSION}',
+        project_name: '${params.project ?: request.project}',
         disclosureIcon: '${resource(dir:"images",file:"icon-tiny-disclosure.png")}',
         disclosureIconOpen: '${resource(dir:"images",file:"icon-tiny-disclosure-open.png")}',
         iconTinyWarn: '${resource(dir:"images",file:"icon-tiny-warn.png")}',
@@ -26,7 +28,9 @@
         iconSmallRemoveX: '${resource(dir:"images",file:"icon-small-removex.png")}',
         iconTinyRemoveX: '${resource(dir:"images",file:"icon-tiny-removex.png")}',
         iconSpinner: '${resource(dir:"images",file:"icon-tiny-disclosure-waiting.gif")}',
+        projectMOTD: '${createLink(uri:"/api/${com.dtolabs.rundeck.app.api.ApiVersions.API_CURRENT_VERSION}/project/${currentProject}/motd.md")}',
         executionCancelExecution: '${createLink(controller:"execution",action:"cancelExecution",params:[format:'json'])}',
+        executionMarkExecutionIncomplete: '${createLink(controller:"execution",action:"incompleteExecution",params:[format:'json'])}',
         tailExecutionOutput: '${createLink(controller: "execution", action: "tailExecutionOutput",params:[format:'json'])}',
         reportsEventsFragment:"${createLink(controller:'reports',action:'eventsFragment',params:projParams)}",
         executionAjaxExecState: "${createLink(action: 'ajaxExecState', controller: 'execution')}",
@@ -48,6 +52,7 @@
         menuHomeSummaryAjax: "${g.createLink(controller: 'menu', action: 'homeSummaryAjax',params:projParams)}",
         menuProjectNamesAjax: "${g.createLink(controller: 'menu', action: 'projectNamesAjax',params:projParams)}",
         menuJobsAjax: "${g.createLink(controller: 'menu', action: 'jobsAjax',params:[format:'json'])}",
+        menuJobSearchJson: '${createLink(controller:'menu',action:'jobsSearchJson')}',
         scheduledExecutionRunAdhocInline: "${createLink(controller:'scheduledExecution',action:'runAdhocInline',params:projParams)}",
         scheduledExecutionCreate: "${createLink(controller:'scheduledExecution',action:'create',params:projParams)}",
         scheduledExecutionExecuteFragment: '${createLink(controller:"scheduledExecution",action:"executeFragment",params:projParams)}',
@@ -69,7 +74,8 @@
         userRenderApiToken: "${g.createLink(controller: 'user', action: 'renderApiToken')}",
 
         workflowEdit: '${createLink(controller:"workflow",action:"edit",params:projParams)}',
-        workflowRender: '${createLink(controller:"workflow",action:"render",params:projParams)}',
+        workflowCopy: '${createLink(controller:"workflow",action:"copy",params:projParams)}',
+        workflowRender: '${createLink(controller:"workflow",action:"renderItem",params:projParams)}',
         workflowSave: '${createLink(controller:"workflow",action:"save",params:projParams)}',
         workflowReorder: '${createLink(controller:"workflow",action:"reorder",params:projParams)}',
         workflowRemove: '${createLink(controller:"workflow",action:"remove",params:projParams)}',
@@ -77,6 +83,10 @@
         workflowRedo: '${createLink(controller:"workflow",action:"redo",params:projParams)}',
         workflowRevert: '${createLink(controller:"workflow",action:"revert",params:projParams)}',
         workflowRenderUndo: '${createLink(controller:"workflow",action:"renderUndo",params:projParams)}',
+        workflowEditStepFilter: '${createLink(controller:"workflow",action:"editStepFilter",params:projParams)}',
+        workflowSaveStepFilter: '${createLink(controller:"workflow",action:"saveStepFilter",params:projParams)}',
+        workflowValidateStepFilter: '${createLink(controller:"workflow",action:"validateStepFilter",params:projParams)}',
+        workflowRemoveStepFilter: '${createLink(controller:"workflow",action:"removeStepFilter",params:projParams)}',
 
         editOptsRenderUndo: '${createLink(controller:"editOpts",action:"renderUndo",params:projParams)}',
         editOptsEdit: '${createLink(controller:"editOpts",action:"edit",params:projParams)}',
@@ -95,7 +105,10 @@
         storageKeysApi: '${createLink(uri:'/storage/access/keys')}',
         storageKeysDownload: '${createLink(uri:'/storage/download/keys')}',
         storageKeysDelete: '${createLink(uri:'/storage/delete/keys')}',
-        apiExecutionsBulkDelete: '${createLink(controller:'execution',action: 'deleteBulkApi')}'
+        apiExecutionsBulkDelete: '${createLink(controller:'execution',action: 'deleteBulkApi')}',
+
+        scmjobs: '${createLink(controller:'menu',action:'listExport',params: projParams)}',
+        togglescm: '${createLink(controller:'menu',action:'projectToggleSCM',params: projParams)}'
     } ;
     <g:if test="${Environment.current==Environment.DEVELOPMENT}" >
     function _messageMissingError(code){

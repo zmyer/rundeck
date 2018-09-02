@@ -1,6 +1,6 @@
 name: rundeck
 version: %{_version}
-release: %{_release}%{?_buildnumber:.%{_buildnumber}}%{?_alphatag:.%{_alphatag}}
+release: %{_release}
 license: APL
 summary: It Slices, it Dices, it Takes Out Your Garbage
 group: System
@@ -33,8 +33,8 @@ Rundeck provides a single console for dispatching commands across many resources
 	- Run the service as the rundeck user.
 
 %pre
-getent group rundeck >/dev/null || groupadd rundeck
-getent passwd rundeck >/dev/null || useradd -d /var/lib/rundeck -m -g rundeck rundeck
+getent group rundeck >/dev/null || groupadd -r rundeck
+getent passwd rundeck >/dev/null || useradd -r -d /var/lib/rundeck -m -g rundeck rundeck
 
 %post
 if [ ! -e ~rundeck/.ssh/id_rsa ]; then
@@ -81,37 +81,23 @@ fi
 
 # Server Bootstrap
 %dir /var/lib/rundeck/bootstrap
-/var/lib/rundeck/bootstrap/javax.servlet-3.0.0.v201112011016.jar
-/var/lib/rundeck/bootstrap/jetty-all-9.0.7.v20131107.jar
-/var/lib/rundeck/bootstrap/jetty-security-9.0.7.v20131107.jar
-/var/lib/rundeck/bootstrap/jetty-server-9.0.7.v20131107.jar
-/var/lib/rundeck/bootstrap/jetty-util-9.0.7.v20131107.jar
-/var/lib/rundeck/bootstrap/jetty-io-9.0.7.v20131107.jar
-/var/lib/rundeck/bootstrap/jetty-http-9.0.7.v20131107.jar
-/var/lib/rundeck/bootstrap/jetty-jaas-9.0.7.v20131107.jar
-/var/lib/rundeck/bootstrap/log4j-1.2.16.jar
-/var/lib/rundeck/bootstrap/jna-3.2.2.jar
-/var/lib/rundeck/bootstrap/libpam4j-1.5.jar
-/var/lib/rundeck/bootstrap/rundeck-jetty-server-%{_vname}.jar
-/var/lib/rundeck/bootstrap/not-yet-commons-ssl-0.3.17.jar
+/var/lib/rundeck/bootstrap/rundeck-%{_vname}.war
 
 # CLI Lib Support
 %dir /var/lib/rundeck/cli
 /var/lib/rundeck/cli/ant-1.8.3.jar
 /var/lib/rundeck/cli/ant-jsch-1.8.3.jar
 /var/lib/rundeck/cli/ant-launcher-1.8.3.jar
-/var/lib/rundeck/cli/commons-beanutils-1.8.3.jar
+/var/lib/rundeck/cli/commons-beanutils-1.9.3.jar
 /var/lib/rundeck/cli/commons-cli-1.0.jar
-/var/lib/rundeck/cli/commons-codec-1.5.jar
+/var/lib/rundeck/cli/commons-codec-1.10.jar
 /var/lib/rundeck/cli/commons-collections-3.2.2.jar
 /var/lib/rundeck/cli/commons-httpclient-3.0.1.jar
 /var/lib/rundeck/cli/commons-lang-2.6.jar
-/var/lib/rundeck/cli/commons-logging-1.1.1.jar
-/var/lib/rundeck/cli/dom4j-1.6.1.jar
-/var/lib/rundeck/cli/guava-15.0.jar
-/var/lib/rundeck/cli/icu4j-2.6.1.jar
-/var/lib/rundeck/cli/jaxen-1.1.jar
-/var/lib/rundeck/cli/jdom-1.0.jar
+/var/lib/rundeck/cli/commons-logging-1.2.jar
+/var/lib/rundeck/cli/dom4j-2.1.1.jar
+/var/lib/rundeck/cli/guava-24.1.1-jre.jar
+/var/lib/rundeck/cli/jaxen-1.1.6.jar
 /var/lib/rundeck/cli/jna-4.1.0.jar
 /var/lib/rundeck/cli/jna-platform-4.1.0.jar
 /var/lib/rundeck/cli/jsch.agentproxy.connector-factory-0.0.9.jar
@@ -127,13 +113,16 @@ fi
 /var/lib/rundeck/cli/rundeck-storage-api-%{_vname}.jar
 /var/lib/rundeck/cli/rundeck-storage-conf-%{_vname}.jar
 /var/lib/rundeck/cli/rundeck-storage-data-%{_vname}.jar
-/var/lib/rundeck/cli/snakeyaml-1.9.jar
-/var/lib/rundeck/cli/xercesImpl-2.11.0.jar
-/var/lib/rundeck/cli/xml-apis-1.4.01.jar
-/var/lib/rundeck/cli/xom-1.0.jar
-/var/lib/rundeck/cli/jackson-annotations-2.8.8.jar
-/var/lib/rundeck/cli/jackson-core-2.8.8.jar
-/var/lib/rundeck/cli/jackson-databind-2.8.8.1.jar
+/var/lib/rundeck/cli/snakeyaml-1.14.jar
+/var/lib/rundeck/cli/jackson-annotations-2.8.0.jar
+/var/lib/rundeck/cli/jackson-core-2.8.11.jar
+/var/lib/rundeck/cli/jackson-databind-2.8.11.2.jar
+/var/lib/rundeck/cli/converter-jackson-2.2.0.jar
+/var/lib/rundeck/cli/okhttp-3.6.0.jar
+/var/lib/rundeck/cli/okio-1.11.0.jar
+/var/lib/rundeck/cli/retrofit-2.2.0.jar
+/var/lib/rundeck/cli/protobuf-java-3.5.1.jar
+
 
 
 # CLI Tools
@@ -166,7 +155,6 @@ getent passwd rundeck >/dev/null || useradd -d /var/lib/rundeck -m -g rundeck ru
 %config(noreplace) /etc/rundeck/jaas-loginmodule.conf
 %config(noreplace) /etc/rundeck/realm.properties
 %config(noreplace) /etc/rundeck/rundeck-config.properties
-%config(noreplace) /var/lib/rundeck/exp/webapp/WEB-INF/web.xml
 
 # SSL Configuration
 %dir /etc/rundeck/ssl

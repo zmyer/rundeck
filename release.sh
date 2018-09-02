@@ -1,13 +1,19 @@
 #!/bin/bash
 #/ Update version to release version, create a release tag and, then update to new snapshot version.
-#/ usage: [--commit]
-#/   --commit: commit changes. otherwise a DRYRUN is performed
+#/ usage: [--dryrun|--commit|--notes] [--sign]
+#/   --dryrun: don't commit changes
+#/   --commit: commit changes
+#/   --sign: sign committed changes
+#/   --notes: update date/name of RELEASE.md file
 
 set -euo pipefail
 IFS=$'\n\t'
 readonly ARGS=("$@")
 DRYRUN=1
-. rd_versions.sh
+SIGN=0
+NOTESONLY=0
+
+. scripts/rd_versions.sh
 
 die(){
     echo >&2 "$@" ; exit 2
@@ -45,10 +51,14 @@ commit_tag(){
     local MESSAGE=${FARGS[1]}
     local TAG=${FARGS[0]}
     echo "Create tag $TAG.."
-    do_dryrun git tag -a $TAG -m "$MESSAGE"
+    if [ "$SIGN" == "1" ] ; then
+        do_dryrun git tag -s $TAG -m "$MESSAGE"
+    else
+        do_dryrun git tag -a $TAG -m "$MESSAGE"
+    fi
 }
 check_args(){
-    if [ ${#ARGS[@]} -gt 1 ] ; then
+    if [ ${#ARGS[@]} -lt 1 ] ; then
         usage
         exit 2
     fi
@@ -58,6 +68,16 @@ check_args(){
     fi
     if [ ${#ARGS[@]} -gt 0 ] && [ "${ARGS[0]}" == "--commit" ] ; then
         DRYRUN=0
+        if [ ${#ARGS[@]} -gt 1 ] && [ "${ARGS[1]}" == "--sign" ] ; then
+            SIGN=1
+        fi
+    elif [ ${#ARGS[@]} -gt 0 ] && [ "${ARGS[0]}" == "--dryrun" ] ; then
+        DRYRUN=1
+    elif [ ${#ARGS[@]} -gt 0 ] && [ "${ARGS[0]}" == "--notes" ] ; then
+        NOTESONLY=1
+    else
+        usage
+        exit 2
     fi
 }
 check_release_notes(){
@@ -82,19 +102,20 @@ check_git_is_clean(){
 }
 generate_release_name(){
     local vers=$1
-    local osascript=$(which osascript)
+    local node=$(which node)
     local TEMPL='<span style="color: $REL_COLOR"><span class="glyphicon glyphicon-$REL_ICON"></span> "$REL_TEXT"</span>'
-    if [ -n "$osascript" ] ; then
+    if [ -n "$node" ] ; then
         # run javascript file with osascript (mac)
-        local vars=$(cat rundeckapp/grails-app/assets/javascripts/version.js  releaseversion.js  | osascript -l JavaScript - $vers )
+        local vars=$(node releaseversion.js $vers )
         eval $vars
         echo $TEMPL | sed "s#\$REL_COLOR#$REL_COLOR#" \
             | sed "s#\$REL_ICON#$REL_ICON#" \
             | sed "s#\$REL_TEXT#$REL_TEXT#"
     fi
 }
-#/ Run the makefile to copy RELEASE.md into the documentation source, and git add the changes.
-generate_release_notes_documentation(){
+
+#/ Update date/name for release notes in RELEASE.md 
+update_release_notes_date(){
     local NEW_VERS=$1
     local DDATE=$(date "+%Y-%m-%d")
     sed "s#Date: ....-..-..#Date: $DDATE#" < RELEASE.md > RELEASE.md.new
@@ -105,16 +126,18 @@ generate_release_notes_documentation(){
     fi
     sed "s#Name: <span.*/span>#Name: $RELNAME#" < RELEASE.md > RELEASE.md.new
     mv RELEASE.md.new RELEASE.md
+}
+
+#/ Update date/name for release notes in RELEASE.md and git add the changes.
+generate_release_notes_documentation(){
+    local NEW_VERS=$1
     
-    make -C docs notes
+    update_release_notes_date "$NEW_VERS"
+
+    make CHANGELOG.md
+
     git add RELEASE.md
     git add CHANGELOG.md
-    git add docs/en/history/version-${NEW_VERS}.md
-    git add docs/en/history/toc.conf
-    git add docs/en/history/changelog.md
-    local out=$( git status --porcelain | grep '^M  docs/en/history/toc.conf') || die "docs/en/history/toc.conf was not modified"
-    out=$( git status --porcelain | grep "^A  docs/en/history/version-${NEW_VERS}.md") || die "docs/en/history/version-${NEW_VERS}.md was not added"
-    out=$( git status --porcelain | grep "^M  docs/en/history/changelog.md") || die "docs/en/history/changelog.md was not modified"
     out=$( git status --porcelain | grep "^M  CHANGELOG.md") || die "CHANGELOG.md was not modified"
 }
 
@@ -123,12 +146,16 @@ main() {
     check_args
 
     local -a VERS=( $( rd_get_version ) )
+    local -a NEW_VERS=( $( rd_make_release_version "${VERS[@]}" ) )
+
+    if [ "1" == "$NOTESONLY" ] ; then
+        generate_release_notes_documentation "$NEW_VERS"
+        return 0
+    fi
 
     rd_check_current_version_is_not_GA  "${VERS[@]}"
 
     check_git_is_clean
-
-    local -a NEW_VERS=( $( rd_make_release_version "${VERS[@]}" ) )
     
     check_release_notes "Release ${NEW_VERS[0]}"
 

@@ -17,6 +17,8 @@
 <%@ page import="com.dtolabs.rundeck.server.authorization.AuthConstants" %>
 
 <g:render template="/common/errorFragment"/>
+<g:render template="editLogFilterModal"/>
+
 
 %{--Edit job form--}%
 <g:form controller="scheduledExecution" method="post"
@@ -26,14 +28,12 @@
         class="form-horizontal"
         onsubmit="if(typeof(validateJobEditForm)=='function'){return validateJobEditForm(this);}">
 
-<div class="panel panel-primary obs_delete_hide" id="editForm">
-    <div class="panel-heading">
+<div class="card obs_delete_hide" id="editForm">
+    <div class="card-header">
         <div class="row">
-            <div class="col-sm-10">
-        <span class="h4">
-            <g:message code="ScheduledExecution.page.edit.title" />
-        </span>
-            </div>
+            <h4 class="col-sm-10 card-title">
+              <g:message code="ScheduledExecution.page.edit.title" />
+            </h4>
 
             <auth:resourceAllowed action="${AuthConstants.ACTION_CREATE}"
                                   project="${params.project}" kind="${AuthConstants.TYPE_JOB}">
@@ -50,20 +50,17 @@
         </div>
     </div>
 
+    <div class="card-content">
         <g:render template="edit" model="[scheduledExecution:scheduledExecution, crontab:crontab, command:command,authorized:authorized]"/>
+    </div>
 
-        <div class="panel-footer">
-            <div class="row">
-            <div class="buttons col-sm-10">
-
-                <g:actionSubmit id="editFormCancelButton" value="${g.message(code: 'cancel')}"
-                                onclick="if(typeof(jobEditCancelled)=='function'){jobEditCancelled();}"
-                                class="btn btn-default reset_page_confirm"/>
-                <g:actionSubmit value="${g.message(code: 'button.action.Save')}" action="Update" class="btn btn-primary reset_page_confirm "/>
-
-            </div>
-            </div>
-        </div>
+    <div class="card-footer">
+      <g:actionSubmit id="editFormCancelButton" value="${g.message(code: 'cancel')}"
+                      onclick="if(typeof(jobEditCancelled)=='function'){jobEditCancelled();}"
+                      class="btn btn-default reset_page_confirm"
+                      action="Cancel"/>
+      <g:actionSubmit value="${g.message(code: 'button.action.Save')}" action="Update" class="btn btn-primary reset_page_confirm "/>
+    </div>
 
 </div>
 

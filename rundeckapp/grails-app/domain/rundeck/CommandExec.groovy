@@ -42,6 +42,7 @@ public class CommandExec extends WorkflowStep  {
         argString type: 'text'
         scriptInterpreter type: 'text'
         fileExtension type: 'text'
+        pluginConfigData(type: 'text')
     }
     public String toString() {
         StringBuffer sb = new StringBuffer()
@@ -85,6 +86,7 @@ public class CommandExec extends WorkflowStep  {
         errorHandler(nullable: true)
         keepgoingOnSuccess(nullable: true)
         fileExtension(nullable: true, maxSize: 255)
+        pluginConfigData(nullable: true, blank: true)
     }
 
     public CommandExec createClone(){
@@ -130,6 +132,34 @@ public class CommandExec extends WorkflowStep  {
         if(description){
             map.description=description
         }
+        def config = getPluginConfig()
+        if (config) {
+            map.plugins = config
+        }
+        return map
+    }
+    /**
+    * Return map representation without content details
+     */
+    public Map toDescriptionMap(){
+        def map=[:]
+        if(adhocRemoteString){
+            map.exec='exec'
+        }else if(adhocLocalString){
+            map.script='script'
+        }else {
+            if(adhocFilepath==~/^(?i:https?|file):.*$/){
+                map.scripturl = 'scripturl'
+            }else{
+                map.scriptfile='scriptfile'
+            }
+        }
+        if(errorHandler){
+            map.errorhandler=errorHandler.toDescriptionMap()
+        }
+        if(description){
+            map.description=description
+        }
         return map
     }
 
@@ -161,6 +191,9 @@ public class CommandExec extends WorkflowStep  {
         ce.keepgoingOnSuccess=!!data.keepgoingOnSuccess
         ce.description=data.description?.toString()
         //nb: error handler is created inside Workflow.fromMap
+        if (data.plugins) {
+            ce.pluginConfig = data.plugins
+        }
         return ce
     }
 

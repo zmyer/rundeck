@@ -13,29 +13,68 @@
   - See the License for the specific language governing permissions and
   - limitations under the License.
   --}%
-
-<g:set var="appLogo"
-       value="${grailsApplication.config.rundeck.gui.logo ?: g.message(code: 'main.app.logo')}"/>
-<g:set var="appLogoHires"
-       value="${grailsApplication.config.rundeck.gui.logoHires ?: g.message(code: 'main.app.logo.hires')}"/>
-<g:set var="appLogoW"
-       value="${grailsApplication.config.rundeck.gui.'logo-width' ?: g.message(code: 'main.app.logo.width')}"/>
-<g:set var="appLogoH"
-       value="${grailsApplication.config.rundeck.gui.'logo-height' ?: g.message(code: 'main.app.logo.height')}"/>
 <g:if test="${session[org.springframework.web.servlet.i18n.SessionLocaleResolver.LOCALE_SESSION_ATTRIBUTE_NAME]?.language=='de'}">
     <g:set var="customCss" value=".navbar-brand,.navbar-default{border-radius: 0 0 10px 10px; }"/>
 </g:if>
 
+<g:set var="sidebarColor" value="${grailsApplication.config.rundeck.gui.sidebarColor}"/>
+<g:set var="sidebarTextColor" value="${grailsApplication.config.rundeck.gui.sidebarTextColor}"/>
+<g:set var="sidebarTextActiveColor" value="${grailsApplication.config.rundeck.gui.sidebarTextActiveColor}"/>
+
+<g:set var="instanceNameLabelColor" value="${grailsApplication.config.rundeck.gui.instanceNameLabelColor}"/>
+<g:set var="instanceNameLabelTextColor" value="${grailsApplication.config.rundeck.gui.instanceNameLabelTextColor}"/>
+
+<style type="text/css">
+  <g:if test="sidebarColor">
+    .sidebar:after,
+    .sidebar:before,
+    .off-canvas-sidebar:after,
+    .off-canvas-sidebar:before {
+        background-color: ${sidebarColor} !important;
+    }
+  </g:if>
+  <g:if test="sidebarTextColor">
+    .sidebar .nav li:not(.active) > a,
+    .off-canvas-sidebar .nav li:not(.active) > a {
+      color: ${sidebarTextColor} !important;
+    }
+  </g:if>
+  <g:if test="sidebarTextActiveColor">
+    .sidebar .nav li.active > a,
+    .off-canvas-sidebar .nav li.active > a,
+    .off-canvas-sidebar .nav li.active > a,
+    .off-canvas-sidebar .nav li.active > a {
+      color: ${sidebarTextActiveColor} !important;
+    }
+  </g:if>
+
+  <g:if test="instanceNameLabelColor">
+    .label-default.instance-label{
+      background-color: ${instanceNameLabelColor} !important;
+    }
+  </g:if>
+
+  <g:if test="instanceNameLabelTextColor">
+    .label-default.instance-label{
+      color: ${instanceNameLabelTextColor} !important;
+    }
+  </g:if>
+</style>
 <style type="text/css">
 
-    .rdicon.app-logo, .nodedetail.server .nodedesc, .node_entry.server .nodedesc{
+
+
+    /*
+    If I turn this off, will it break things? ~ Jesse
+    .nodedetail.server .nodedesc, .node_entry.server .nodedesc{
+
           width: ${enc(rawtext:appLogoW)};
           height: ${enc(rawtext:appLogoH)};
         vertical-align: baseline;
     }
 
-    .rdicon.app-logo, .nodedetail.server .nodedesc, .node_entry.server .nodedesc {
-        background-image: url("${resource(dir: 'images', file: appLogo)}");
+    .nodedetail.server .nodedesc, .node_entry.server .nodedesc {
+        background-image: url("${logoResource}");
         background-repeat: no-repeat;
     }
 
@@ -46,17 +85,11 @@
     only screen and (        min-device-pixel-ratio: 2),
     only screen and (                min-resolution: 192dpi),
     only screen and (                min-resolution: 2dppx) {
-    .rdicon.app-logo, .nodedetail.server .nodedesc, .node_entry.server .nodedesc {
-        background-image: url("${resource(dir: 'images', file: appLogoHires)}");
+    .nodedetail.server .nodedesc, .node_entry.server .nodedesc {
+        background-image: url("${logoResourceHires}");
         background-size: ${ enc(rawtext:appLogoW) } ${ enc(rawtext:appLogoH) };
     }
-    }
-
-    <g:if test="${grailsApplication.config.rundeck.gui.navbar.background}">
-    .navbar-overrides {
-        background: ${grailsApplication.config.rundeck.gui.navbar.background};
-    }
-    </g:if>
+    } */
 
     ${enc(rawtext:customCss)}
 </style>

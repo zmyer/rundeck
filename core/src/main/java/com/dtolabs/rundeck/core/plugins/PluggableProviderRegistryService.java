@@ -36,11 +36,14 @@ import java.util.List;
  * @author Greg Schueler <a href="mailto:greg@dtosolutions.com">greg@dtosolutions.com</a>
  */
 public abstract class PluggableProviderRegistryService<T> extends BaseProviderRegistryService<T> implements
-    PluggableService<T> {
+    PluggableProviderService<T> {
     protected PluggableProviderRegistryService(final Framework framework) {
         super(framework);
     }
 
+    public PluggableProviderRegistryService(final Framework framework, final boolean cacheInstances) {
+        super(framework, cacheInstances);
+    }
 
     @Override
     public T providerOfType(final String providerName) throws ExecutionServiceException {

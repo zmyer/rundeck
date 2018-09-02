@@ -138,6 +138,7 @@
                 </div>
 
                 <div data-bind="if:!multivalued()">
+                    <!-- ko if: !hasRemote() || loadedRemoteValues() -->
                     <select class="optionvalues form-control"
                             data-bind="attr: {name: !hasTextfield()?fieldName():'', id: !hasTextfield()?fieldId():'' },
                          options: selectOptions,
@@ -145,6 +146,7 @@
                          optionsValue: 'value',
                         value:selectedOptionValue">
                     </select>
+                    <!-- /ko -->
 
                 </div>
 
@@ -154,7 +156,7 @@
 
     <div data-bind="if: showDefaultButton()">
         <div class="col-sm-12">
-            <span class="btn btn-sm btn-link"
+            <span class="btn btn-sm btn-simple"
                   data-bind="attr: { title: message('option.default.button.title') }, click: setDefault"
                   title="Click to use default value: xx">
                 <g:icon name="hand-right"/>
@@ -169,7 +171,7 @@
 <div data-bind="if: hasRemote() && remoteValues().length<1 && !remoteError()">
     <div class="row">
         <div class="col-sm-12">
-            <div class="text-muted"><g:message code="option.remote.dependency.emptyresult"/></div>
+            <div class="text-primary"><g:message code="option.remote.dependency.emptyresult"/></div>
         </div>
     </div>
 </div>
@@ -178,7 +180,7 @@
     <div class="row">
         <div class="col-sm-12">
             <div data-bind="if: remoteError().code == 'empty'">
-                <div class="text-muted"><g:message code="option.remote.dependency.emptyresult"/></div>
+                <div class="text-primary"><g:message code="option.remote.dependency.emptyresult"/></div>
             </div>
             <span class="text-danger " data-bind="text: remoteError().error"></span>
 

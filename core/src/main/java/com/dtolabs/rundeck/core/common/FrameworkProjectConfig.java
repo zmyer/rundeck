@@ -45,14 +45,14 @@ public class FrameworkProjectConfig implements IRundeckProjectConfig, IRundeckPr
      */
     private PropertyLookup projectLookup;
     private File propertyFile;
-    private FilesystemFramework filesystemFramework;
+    private IFilesystemFramework filesystemFramework;
 
     private long propertiesLastReload = 0L;
 
     public FrameworkProjectConfig(
             final String name,
             final File propertyFile,
-            final FilesystemFramework filesystemFramework
+            final IFilesystemFramework filesystemFramework
     )
     {
         this.name = name;
@@ -71,7 +71,7 @@ public class FrameworkProjectConfig implements IRundeckProjectConfig, IRundeckPr
     public static FrameworkProjectConfig create(
             final String name,
             final File propertyFile,
-            final FilesystemFramework filesystemFramework
+            final IFilesystemFramework filesystemFramework
     )
     {
         return new FrameworkProjectConfig(name, propertyFile, filesystemFramework);
@@ -89,7 +89,7 @@ public class FrameworkProjectConfig implements IRundeckProjectConfig, IRundeckPr
             final String name,
             final File propertyFile,
             final Properties properties,
-            final FilesystemFramework filesystemFramework
+            final IFilesystemFramework filesystemFramework
     )
     {
 
@@ -174,13 +174,7 @@ public class FrameworkProjectConfig implements IRundeckProjectConfig, IRundeckPr
         if (addDefaultProps) {
             if (null == properties || !properties.containsKey("resources.source.1.type")) {
                 //add default file source
-                newProps.setProperty("resources.source.1.type", "file");
-                newProps.setProperty(
-                        "resources.source.1.config.file",
-                        new File(destfile.getParentFile(), "resources.xml").getAbsolutePath()
-                );
-                newProps.setProperty("resources.source.1.config.includeServerNode", "true");
-                newProps.setProperty("resources.source.1.config.generateFileAutomatically", "true");
+                newProps.setProperty("resources.source.1.type", "local");
             }
             if (null == properties || !properties.containsKey("service.NodeExecutor.default.provider")) {
                 newProps.setProperty("service.NodeExecutor.default.provider", "jsch-ssh");
@@ -287,7 +281,7 @@ public class FrameworkProjectConfig implements IRundeckProjectConfig, IRundeckPr
      * @param filesystemFramework the filesystem
      */
     private static PropertyLookup createDirectProjectPropertyLookup(
-            FilesystemFramework filesystemFramework,
+            IFilesystemFramework filesystemFramework,
             String projectName
     )
     {
@@ -369,7 +363,7 @@ public class FrameworkProjectConfig implements IRundeckProjectConfig, IRundeckPr
      * @param filesystemFramework the filesystem
      */
     private static PropertyLookup createProjectPropertyLookup(
-            FilesystemFramework filesystemFramework,
+            IFilesystemFramework filesystemFramework,
             String projectName
     )
     {

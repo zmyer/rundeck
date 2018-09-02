@@ -27,7 +27,8 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <meta name="tabpage" content="configure"/>
     <meta name="layout" content="base"/>
-    <title><g:appTitle/> - <g:message code="scmController.page.${integration}.diff.title" args="[params.project]"/></title>
+    <g:set var="projectLabel" value="${session.frameworkLabels?session.frameworkLabels[params.project]:params.project}"/>
+    <title><g:appTitle/> - <g:message code="scmController.page.${integration}.diff.title" args="[projectLabel]"/></title>
 
 </head>
 
@@ -68,7 +69,7 @@
                 <g:if test="${scmFilePaths && scmFilePaths[job.extid]}">
                     <g:if test="${scmExportRenamedPath}">
                         <div>
-                            <span class="has_tooltip text-muted" title="Original repo path">
+                            <span class="has_tooltip text-primary" title="Original repo path">
                                 <g:icon name="file"/>
                                 ${scmExportRenamedPath}
                             </span>
@@ -118,7 +119,7 @@
             <g:elseif test="${diffResult && !diffResult.modified}">
 
                 <div class="list-group-item">
-                    <div class="list-group-item-text text-muted">
+                    <div class="list-group-item-text text-primary">
                         <g:message code="no.changes"/>
                     </div>
                 </div>
@@ -126,7 +127,7 @@
             <g:elseif test="${diffResult?.content}">
                 <div class="list-group-item">
                     <g:link action="diff" controller="scm"
-                            class="btn btn-link"
+                            class="btn btn-simple"
                             params="[project: params.project, id: job.extid, download: true, integration:integration]">
                         <g:icon name="download"/>
                         <g:message code="download.diff" />
@@ -156,7 +157,7 @@
     </div>
 </div>
 
-<!--[if (gt IE 8)|!(IE)]><!--> <g:javascript library="ace/ace"/><!--<![endif]-->
+<!--[if (gt IE 8)|!(IE)]><!--> <asset:javascript src="ace-bundle.js"/><!--<![endif]-->
 <g:javascript>
     fireWhenReady('difftext', function (z) {
         jQuery('.apply_ace').each(function () {

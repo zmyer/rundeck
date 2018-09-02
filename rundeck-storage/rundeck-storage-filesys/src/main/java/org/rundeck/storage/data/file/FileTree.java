@@ -39,23 +39,27 @@ public class FileTree<T extends ContentMeta> extends LockingTree<T> implements T
 
     @Override
     public boolean hasPath(Path path) {
+        validatePath(path);
         return filepathMapper.contentFileForPath(path).isFile() || filepathMapper.directoryForPath(path).isDirectory();
     }
 
     @Override
     public boolean hasResource(Path path) {
+        validatePath(path);
         return filepathMapper.contentFileForPath(path).isFile() && filepathMapper.metadataFileFor(path).exists();
     }
 
     @Override
     public boolean hasDirectory(Path path) {
+        validatePath(path);
         return filepathMapper.directoryForPath(path).isDirectory();
     }
 
     @Override
     public Resource<T> getResource(Path path) {
+        validatePath(path);
         try {
-            return loadResource(path);
+            return loadResource(path, true);
         } catch (IOException e) {
             throw StorageException.readException(path, "Failed to read resource: " + path + ": " + e.getMessage(), e);
         }
@@ -63,18 +67,25 @@ public class FileTree<T extends ContentMeta> extends LockingTree<T> implements T
 
     @Override
     public Resource<T> getPath(Path path) {
+        validatePath(path);
         try {
-            return loadResource(path);
+            return loadResource(path, false);
         } catch (IOException e) {
             throw StorageException.readException(path, "Failed to read resource: " + path + ": " + e.getMessage(), e);
         }
     }
 
-    private Resource<T> loadResource(Path path) throws IOException {
+    private Resource<T> loadResource(Path path, final boolean requireFile) throws IOException {
         synchronized (pathSynch(path)) {
             File datafile = filepathMapper.contentFileForPath(path);
             if (!datafile.exists()) {
                 throw StorageException.readException(path, "Path does not exist: " + path);
+            }
+            if (requireFile && datafile.isDirectory()) {
+                throw StorageException.readException(
+                    path,
+                    String.format("Failed to read resource at path: %s: is a directory", path)
+                );
             }
             boolean directory = datafile.isDirectory();
             if (!directory) {
@@ -150,6 +161,7 @@ public class FileTree<T extends ContentMeta> extends LockingTree<T> implements T
      * @return set of matching resources
      */
     private Set<Resource<T>> filterResources(Path path, Predicate<Resource> test) {
+        validatePath(path);
         if (!hasDirectory(path)) {
             throw StorageException.listException(path, "not a directory path: " + path);
         }
@@ -157,8 +169,7 @@ public class FileTree<T extends ContentMeta> extends LockingTree<T> implements T
         HashSet<Resource<T>> files = new HashSet<Resource<T>>();
         try {
             for (File file1 : file.listFiles()) {
-
-                Resource<T> res = loadResource(filepathMapper.pathForContentFile(file1));
+                Resource<T> res = loadResource(filepathMapper.pathForContentFile(file1), false);
                 if (null == test || test.apply(res)) {
                     files.add(res);
                 }
@@ -171,6 +182,7 @@ public class FileTree<T extends ContentMeta> extends LockingTree<T> implements T
 
     @Override
     public boolean deleteResource(Path path) {
+        validatePath(path);
         boolean content = false;
         boolean meta = false;
         synchronized (pathSynch(path)) {
@@ -187,8 +199,15 @@ public class FileTree<T extends ContentMeta> extends LockingTree<T> implements T
         return content && meta;
     }
 
+    private void validatePath(final Path path) {
+        if (path.getPath().contains("../")) {
+            throw StorageException.createException(path, "Invalid path: " + path);
+        }
+    }
+
     @Override
     public Resource<T> createResource(Path path, ContentMeta content) {
+        validatePath(path);
         synchronized (pathSynch(path)) {
             if (hasResource(path)) {
                 throw StorageException.createException(path, "Resource already exists: " + path);
@@ -204,6 +223,7 @@ public class FileTree<T extends ContentMeta> extends LockingTree<T> implements T
 
     @Override
     public Resource<T> updateResource(Path path, ContentMeta content) {
+        validatePath(path);
         synchronized (pathSynch(path)) {
             if (!hasResource(path)) {
                 throw StorageException.updateException(path, "Resource does not exist: " + path);

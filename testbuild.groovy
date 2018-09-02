@@ -18,40 +18,45 @@
 
 //Test the result of the build to verify expected artifacts are created
 
+cli = new CliBuilder(usage: 'slide')
+cli._(longOpt: 'buildType', args: 1, 'Build type [development | release]')
+def options = cli.parse(args)
+
 def target="build/libs"
 
 def props=new Properties()
-new File('gradle.properties').withReader{
+new File('version.properties').withReader{
     props.load(it)
 }
-args.each{
-    def m=it=~/^-[PD](.+?)(=(.+))?$/
-    if(m.matches()){
-        props[m[0][1]]=m[0][2]?m[0][3]:true
-    }
+
+def vNum = props.get('version.number')
+
+def version
+
+if(options.buildType == 'development'){
+    version = "${vNum}-SNAPSHOT".toString()
+} else if (options.buildType == 'release'){
+    version = props.get('version.version')
+} else {
+    throw new Exception("Unknown build type [${options.buildType}]".toString())
 }
 
-
-def tag="-SNAPSHOT"
-if(props.'release'){
-    tag= props.releaseTag && props.releaseTag!='GA' ? '-'+props.releaseTag : ''
-}
 def debug=Boolean.getBoolean('debug')?:("-debug" in args)
-def version=props.currentVersion+tag
+
 //versions of dependency we want to verify
 def versions=[
-        mysql:'5.1.35',
-        jetty:'9.0.7.v20131107',
-        servlet:'3.0.0.v201112011016'
+        mysql:'5.1.42',
+        jetty:'9.4.11.v20180605',
+        servlet:'api-3.1.0'
 ]
 
-def warFile= "rundeckapp/target/rundeck-${version}.war"
+def warFile= "rundeckapp/${target}/rundeck-${version}.war"
 def coreJarFile = "core/${target}/rundeck-core-${version}.jar"
-def launcherJarFile = "rundeck-launcher/launcher/${target}/rundeck-launcher-${version}.jar"
+//def launcherJarFile = "rundeck-launcher/launcher/${target}/rundeck-launcher-${version}.jar"
 
 //the list of bundled plugins to verify in the war and jar
-def plugins=['script','stub','localexec','copyfile','job-state','flow-control','jasypt-encryption','git','orchestrator', 'source-refresh']
-def externalPlugins=['rundeck-ansible-plugin']
+def plugins=['script','stub','localexec','copyfile','job-state','flow-control','jasypt-encryption','git','orchestrator', 'source-refresh','upvar']
+def externalPlugins=['rundeck-ansible-plugin','aws-s3-model-source','py-winrm-plugin','openssh-node-execution']
 
 //manifest describing expected build results
 def manifest=[
@@ -70,44 +75,38 @@ def manifest=[
     (coreJarFile):[:],
     "core/${target}/rundeck-core-${version}-sources.jar":[:],
     "core/${target}/rundeck-core-${version}-javadoc.jar":[:],
-    (warFile):[:],
-    "rundeck-launcher/rundeck-jetty-server/${target}/rundeck-jetty-server-${version}.jar":[:],
-    (launcherJarFile): [
-        "com/dtolabs/rundeck/#+",// require 1+ files in dir
-        "pkgs/webapp/WEB-INF/classes/#+",
-        "pkgs/webapp/WEB-INF/lib/rundeck-core-${version}.jar",
-        "pkgs/webapp/WEB-INF/lib/rundeck-storage-api-${version}.jar",
-        "pkgs/webapp/WEB-INF/lib/rundeck-storage-conf-${version}.jar",
-        "pkgs/webapp/WEB-INF/lib/rundeck-storage-data-${version}.jar",
-        "pkgs/webapp/WEB-INF/lib/rundeck-storage-filesys-${version}.jar",
-        "pkgs/webapp/WEB-INF/lib/mysql-connector-java-${versions.mysql}.jar",
+    (warFile): [
+        "WEB-INF/classes/#+",
+        "WEB-INF/lib/rundeck-core-${version}.jar",
+        "WEB-INF/lib/rundeck-storage-api-${version}.jar",
+        "WEB-INF/lib/rundeck-storage-conf-${version}.jar",
+        "WEB-INF/lib/rundeck-storage-data-${version}.jar",
+        "WEB-INF/lib/rundeck-storage-filesys-${version}.jar",
+        "WEB-INF/lib/mysql-connector-java-${versions.mysql}.jar",
         // ##file : require checksum verify to top level
-        "pkgs/webapp/WEB-INF/lib/rundeck-core-${version}.jar##core/${target}/rundeck-core-${version}.jar",
-        "pkgs/webapp/WEB-INF/lib/rundeck-storage-api-${version}.jar##rundeck-storage/rundeck-storage-api/${target}/rundeck-storage-api-${version}.jar",
-        "pkgs/webapp/WEB-INF/lib/rundeck-storage-conf-${version}.jar##rundeck-storage/rundeck-storage-conf/${target}/rundeck-storage-conf-${version}.jar",
-        "pkgs/webapp/WEB-INF/lib/rundeck-storage-data-${version}.jar##rundeck-storage/rundeck-storage-data/${target}/rundeck-storage-data-${version}.jar",
-        "pkgs/webapp/WEB-INF/lib/rundeck-storage-filesys-${version}.jar##rundeck-storage/rundeck-storage-filesys/${target}/rundeck-storage-filesys-${version}.jar",
-        "pkgs/webapp/WEB-INF/rundeck/plugins/manifest.properties",
-        "templates/config/#4",
+        "WEB-INF/lib/rundeck-core-${version}.jar##core/${target}/rundeck-core-${version}.jar",
+        "WEB-INF/lib/rundeck-storage-api-${version}.jar##rundeck-storage/rundeck-storage-api/${target}/rundeck-storage-api-${version}.jar",
+        "WEB-INF/lib/rundeck-storage-conf-${version}.jar##rundeck-storage/rundeck-storage-conf/${target}/rundeck-storage-conf-${version}.jar",
+        "WEB-INF/lib/rundeck-storage-data-${version}.jar##rundeck-storage/rundeck-storage-data/${target}/rundeck-storage-data-${version}.jar",
+        "WEB-INF/lib/rundeck-storage-filesys-${version}.jar##rundeck-storage/rundeck-storage-filesys/${target}/rundeck-storage-filesys-${version}.jar",
+        "WEB-INF/rundeck/plugins/manifest.properties",
+        "templates/config/#5",
         "templates/config/jaas-loginmodule.conf.template",
+        "templates/config/log4j.properties.template",
         "templates/config/realm.properties.template",
         "templates/config/rundeck-config.properties.template",
         "templates/config/ssl.properties.template",
         "templates/sbin/rundeckd.template",
-        "lib/#13",
-        "lib/jetty-all-${versions.jetty}.jar",
-        "lib/jetty-jaas-${versions.jetty}.jar",
-        "lib/jetty-server-${versions.jetty}.jar",
-        "lib/jetty-util-${versions.jetty}.jar",
-        "lib/jetty-http-${versions.jetty}.jar",
-        "lib/jetty-io-${versions.jetty}.jar",
-        "lib/jetty-security-${versions.jetty}.jar",
-        "lib/log4j-1.2.16.jar",
-        "lib/rundeck-jetty-server-${version}.jar",
-        "lib/javax.servlet-${versions.servlet}.jar",
-        "lib/jna-3.2.2.jar",
-        "lib/libpam4j-1.5.jar",
-        "lib/not-yet-commons-ssl-0.3.17.jar",
+        "WEB-INF/lib/jetty-jaas-${versions.jetty}.jar",
+        "WEB-INF/lib-provided/jetty-server-${versions.jetty}.jar",
+        "WEB-INF/lib/jetty-util-${versions.jetty}.jar",
+        "WEB-INF/lib-provided/jetty-http-${versions.jetty}.jar",
+        "WEB-INF/lib-provided/jetty-io-${versions.jetty}.jar",
+        "WEB-INF/lib-provided/jetty-security-${versions.jetty}.jar",
+        "WEB-INF/lib/log4j-1.2.17.jar",
+        "WEB-INF/lib-provided/javax.servlet-${versions.servlet}.jar",
+        "WEB-INF/lib/libpam4j-1.10.jar",
+        "WEB-INF/lib/not-yet-commons-ssl-0.3.17.jar",
     ],
     "plugins/script-plugin/${target}/rundeck-script-plugin-${version}.jar":[:],
     "plugins/stub-plugin/${target}/rundeck-stub-plugin-${version}.jar":[:],
@@ -116,15 +115,16 @@ def manifest=[
     "plugins/job-state-plugin/${target}/rundeck-job-state-plugin-${version}.jar":[:],
     "plugins/flow-control-plugin/${target}/rundeck-flow-control-plugin-${version}.jar":[:],
     "plugins/source-refresh-plugin/${target}/rundeck-source-refresh-plugin-${version}.jar":[:],
+    "plugins/upvar-plugin/${target}/rundeck-upvar-plugin-${version}.jar":[:],
 ]
 def pluginsum=1
 //generate list of plugin files in the jar to validate
 plugins.each{plugin->
     manifest["plugins/${plugin}-plugin/${target}/rundeck-${plugin}-plugin-${version}.jar"]=[:]
-    manifest.get(launcherJarFile).addAll([
-        "pkgs/webapp/WEB-INF/rundeck/plugins/rundeck-${plugin}-plugin-${version}.jar",
-        "pkgs/webapp/WEB-INF/rundeck/plugins/rundeck-${plugin}-plugin-${version}.jar.properties",
-        "pkgs/webapp/WEB-INF/rundeck/plugins/rundeck-${plugin}-plugin-${version}.jar##plugins/${plugin}-plugin/${target}/rundeck-${plugin}-plugin-${version}.jar",
+    manifest.get(warFile).addAll([
+        "WEB-INF/rundeck/plugins/rundeck-${plugin}-plugin-${version}.jar",
+        "WEB-INF/rundeck/plugins/rundeck-${plugin}-plugin-${version}.jar.properties",
+        "WEB-INF/rundeck/plugins/rundeck-${plugin}-plugin-${version}.jar##plugins/${plugin}-plugin/${target}/rundeck-${plugin}-plugin-${version}.jar",
       ])
     pluginsum+=2
 }
@@ -132,7 +132,7 @@ externalPlugins.each{plugin->
   pluginsum+=2
 }
 //require correct plugin files count in dir
-manifest.get(launcherJarFile).add("pkgs/webapp/WEB-INF/rundeck/plugins/#${pluginsum}")
+manifest.get(warFile).add("WEB-INF/rundeck/plugins/#${pluginsum}")
 
 def isValid=true
 
@@ -265,13 +265,9 @@ require("[${RundeckToolsDependencies}] Manifest entry not empty in jar file: " +
 
 //test war contents
 def warPkgsDir = "WEB-INF/lib"
-def warLibsZipManifest=toolDepsList.collect{ "${warPkgsDir}/${it}" }
+def excludedDeps = ["jna-4.1.0.jar","jna-platform-4.1.0.jar"] //grails has newer versions of jna that get packaged into the war
+def warLibsZipManifest=toolDepsList.findAll{ !excludedDeps.contains(it) }.collect{ "${warPkgsDir}/${it}" }
 testZip([(new File(warFile)):warLibsZipManifest])
-
-//test launcher contents
-def launcherPkgsDir = "pkgs/webapp/WEB-INF/lib"
-def launcherLibsZipManifest = toolDepsList.collect { "${launcherPkgsDir}/${it}" }
-testZip([(new File(launcherJarFile)): launcherLibsZipManifest])
 
 
 if(!require("Build manifest was${isValid?'':' NOT'} verified.",isValid)){

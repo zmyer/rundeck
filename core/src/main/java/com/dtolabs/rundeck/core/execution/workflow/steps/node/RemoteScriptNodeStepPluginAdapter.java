@@ -24,6 +24,8 @@
 package com.dtolabs.rundeck.core.execution.workflow.steps.node;
 
 import com.dtolabs.rundeck.core.common.INodeEntry;
+import com.dtolabs.rundeck.core.data.SharedDataContextUtils;
+import com.dtolabs.rundeck.core.dispatcher.ContextView;
 import com.dtolabs.rundeck.core.dispatcher.DataContextUtils;
 import com.dtolabs.rundeck.core.execution.*;
 import com.dtolabs.rundeck.core.execution.impl.common.BaseFileCopier;
@@ -83,6 +85,10 @@ class RemoteScriptNodeStepPluginAdapter implements NodeStepExecutor, Describable
         this.scriptUtils = scriptUtils;
     }
 
+    public static boolean canAdaptType(Class<?> testType){
+        return RemoteScriptNodeStepPlugin.class.isAssignableFrom(testType);
+    }
+
     static class Convert implements Converter<RemoteScriptNodeStepPlugin, NodeStepExecutor> {
         @Override
         public NodeStepExecutor convert(final RemoteScriptNodeStepPlugin plugin) {
@@ -102,11 +108,15 @@ class RemoteScriptNodeStepPluginAdapter implements NodeStepExecutor, Describable
 
         Map<String, Object> instanceConfiguration = getStepConfiguration(item);
         if (null != instanceConfiguration) {
-            instanceConfiguration = DataContextUtils.replaceDataReferences(instanceConfiguration,
-                                                                           context.getDataContext(),
-                                                                           null,
-                                                                           false,
-                                                                           true);
+            instanceConfiguration = SharedDataContextUtils.replaceDataReferences(
+                    instanceConfiguration,
+                    ContextView.node(node.getNodename()),
+                    ContextView::nodeStep,
+                    null,
+                    context.getSharedDataContext(),
+                    false,
+                    false
+            );
         }
         final String providerName = item.getNodeStepType();
         final PropertyResolver resolver = PropertyResolverFactory.createStepPluginRuntimeResolver(context,
@@ -138,7 +148,7 @@ class RemoteScriptNodeStepPluginAdapter implements NodeStepExecutor, Describable
                         .build(),
                 node,
                 script,
-                DataContextUtils.resolve(context.getDataContext(), "job", "execid"),
+                context.getDataContextObject().resolve("job", "execid"),
                 providerName
         );
     }

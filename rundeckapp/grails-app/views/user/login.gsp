@@ -21,7 +21,7 @@
   - limitations under the License.
   --}%
 
-<g:appTitle/> - Login</title>
+    <g:appTitle/> - Login</title>
     <META HTTP-EQUIV="Pragma" CONTENT="no-cache">
     <META HTTP-EQUIV="Expires" CONTENT="-1">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,22 +29,18 @@
     <link rel="favicon" href="${g.resource(dir: 'images', file: 'favicon-152.png')}"/>
     <link rel="shortcut icon" href="${g.resource(dir: 'images', file: 'favicon.ico')}"/>
     <link rel="apple-touch-icon-precomposed" href="${g.resource(dir: 'images', file: 'favicon-152.png')}"/>
-    <asset:stylesheet href="rundeck.css"/>
-    <asset:stylesheet href="non_responsive.css"/>
+    <asset:stylesheet href="bootstrap.min.css"/>
+    <asset:stylesheet href="app.scss.css"/>
+    <asset:stylesheet href="custom.less.css"/>
     <!--[if lt IE 9]>
-    <g:javascript library="respond.min"/>
+    <asset:javascript src="respond.min.js"/>
     <![endif]-->
     <asset:javascript src="jquery.js"/>
-    <asset:javascript src="prototype.min.js"/>
     <asset:javascript src="versionIdentity.js"/>
     <g:render template="/common/css"/>
     <script language="javascript">
         //<!--
-        Event.observe(window, 'load', loadFocus, false);
-
-        function loadFocus() {
-            $('login').focus();
-        }
+        jQuery(function() {jQuery('#login').focus();});
         if (typeof(oopsEmbeddedLogin) == 'function') {
             oopsEmbeddedLogin();
         }
@@ -52,59 +48,100 @@
     </script>
 </head>
 <body id="loginpage">
-
-<g:render template="/common/topbar"/>
-<div class="container">
-
-<div class="col-sm-4 col-sm-push-4">
-    <div class="panel panel-primary ">
-        <div class="panel-body">
-        <form action="j_security_check" method="post" class="form " role="form">
-
-            <g:set var="loginhtml" value="${grailsApplication.config.rundeck?.gui?.login?.welcomeHtml ?: ''}"/>
-            <g:if test="${loginhtml}">
-            <div class="row">
-                <span class="col-sm-12">
-                    ${enc(sanitize:loginhtml)}
-                </span>
-            </div>
+  <div class="wrapper wrapper-full-page">
+    <div class="full-page login-page">
+    <!-- <div class="full-page login-page" data-color="" data-image="static/img/background/background-2.jpg"> -->
+      <div class="content">
+        <div class="container">
+          <div class="row">
+            <g:set var="userDefinedInstanceName" value="${grailsApplication.config.rundeck?.gui?.instanceName}"/>
+            <g:if test="${userDefinedInstanceName}">
+              <div class="col-md-12" style="text-align:center;margin-bottom:3em;">
+                  <span class="label label-white" style="padding:.8em;font-size: 20px; border-radius:3px;    box-shadow: 0 6px 10px -4px rgba(0, 0, 0, 0.15);">
+                      ${enc(sanitize:userDefinedInstanceName)}
+                  </span>
+              </div>
             </g:if>
-            <g:set var="loginmsg"
-                   value="${grailsApplication.config.rundeck?.gui?.login?.welcome ?: g.message(code: 'gui.login.welcome', default: '')}"/>
-            <g:if test="${loginmsg}">
-            <div class="row">
-                <span class="col-sm-12">
-                    <h3 class="text-muted">
-                        <g:enc>${loginmsg}</g:enc>
+            <div class="col-md-4 col-sm-6 col-md-offset-4 col-sm-offset-3">
+              <form action="${g.createLink(uri:"/j_security_check")}" method="post" class="form " role="form">
+                <div class="card" data-background="color" data-color="blue">
+                  <div class="card-header">
+                    <h3 class="card-title">
+                      <div class="logo">
+                          <a href="${grailsApplication.config.rundeck.gui.titleLink ? enc(attr:grailsApplication.config.rundeck.gui.titleLink) : g.createLink(uri: '/')}" title="Home">
+                            <img src="${resource(dir: 'images', file: 'rundeck-full-logo-black.png')}" alt="Rundeck" style="height: 20px; width: auto;"/>
+                          </a>
+                          <g:set var="userDefinedLogo" value="${grailsApplication.config.rundeck?.gui?.logo}"/>
+                          <g:if test="${userDefinedLogo}">
+                            <g:set var="userAssetBase" value="/user-assets" />
+                            <g:set var="safeUserLogo" value="${userDefinedLogo.toString().encodeAsSanitizedHTML()}" />
+                            <div style="margin-top:2em">
+                              <img src="${g.createLink(uri:userAssetBase+"/"+safeUserLogo)}">
+                            </div>
+                          </g:if>
+                      </div>
                     </h3>
-                </span>
-            </div>
-            </g:if>
-            <div class="form-group">
-                <label for="login">Username</label>
-                <input type="text" name="j_username" id="login" class="form-control" autofocus="true"/>
-            </div>
+                  </div>
+                  <div class="card-content">
+                    <g:set var="loginhtml" value="${grailsApplication.config.rundeck?.gui?.login?.welcomeHtml ?: ''}"/>
+                    <g:if test="${loginhtml}">
+                      <div style="margin-bottom:2em;">
+                        <span>
+                          ${enc(sanitize:loginhtml)}
+                        </span>
+                      </div>
+                    </g:if>
+                    <g:set var="loginmsg" value="${grailsApplication.config.rundeck?.gui?.login?.welcome ?: g.message(code: 'gui.login.welcome', default: '')}"/>
+                    <g:if test="${loginmsg}">
+                      <div style="margin-bottom:2em;">
+                        <span>
+                          <h4 class="text-default">
+                            <g:enc>${loginmsg}</g:enc>
+                          </h4>
+                        </span>
+                      </div>
+                    </g:if>
+                    <div class="form-group">
+                        <label for="login"><g:message code="user.login.username.label"/></label>
+                        <input type="text" name="j_username" id="login" class="form-control input-no-border" autofocus="true"/>
+                    </div>
 
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" name="j_password" id="password" class="form-control"/>
-            </div>
+                    <div class="form-group">
+                        <label for="password"><g:message code="user.login.password.label"/></label>
+                        <input type="password" name="j_password" id="password" class="form-control input-no-border"/>
+                    </div>
+                  </div>
+                  <div class="card-footer text-center">
+                    <g:if test="${flash.loginerror}">
+                      <div class="alert alert-danger">
+                          <span><g:enc>${flash.loginerror}</g:enc></span>
+                      </div>
+                    </g:if>
+                    <button type="submit" id="btn-login" class="btn btn-fill btn-wd "><g:message code="user.login.login.button"/></button>
 
-            <div class="form-group">
-                <button type="submit" class="btn btn-primary">Login</button>
+                      <g:if test="${grailsApplication.config.rundeck.sso.loginButton.enabled?.asBoolean()}">
+                          <div class='form-group'>
+                              <a class='btn btn-default' href='${grailsApplication.config.rundeck.sso.loginButton.url}'>${grailsApplication.config.rundeck.sso.loginButton.title}</a>
+                          </div>
+                      </g:if>
+
+                      <g:set var="footermessagehtml" value="${grailsApplication.config.rundeck?.gui?.login?.footerMessageHtml ?: ''}"/>
+                    <g:if test="${footermessagehtml}">
+                      <div>
+                        <span>
+                            ${enc(sanitize:footermessagehtml)}
+                        </span>
+                      </div>
+                    </g:if>
+                  </div>
+              </form>
             </div>
-        </form>
+          </div>
         </div>
-        <g:if test="${flash.loginerror}">
-            <div class="panel-footer panel-danger">
-                <g:enc>${flash.loginerror}</g:enc>
-            </div>
-        </g:if>
+      </div>
     </div>
-</div>
-</div>
-<div class="container footer">
     <g:render template="/common/footer"/>
+  </div>
 </div>
 </body>
 </html>

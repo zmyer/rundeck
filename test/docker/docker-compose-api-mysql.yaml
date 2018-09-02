@@ -2,7 +2,7 @@ version: '2'
 
 services:
   mysql:
-    image: mysql:5.6
+    image: mysql:5.7
     expose:
       - 3306
     environment:
@@ -17,18 +17,12 @@ services:
        - ./dockers/mysql/conf:/etc/mysql/conf.d
   rundeck1:
     hostname: rundeck1
-    build:
-      context: dockers/rundeck/
-      args:
-        CLI_DEB_URL: ${CLI_DEB_URL}
-        CLI_VERS: ${CLI_VERS}
-        LAUNCHER_URL: ${LAUNCHER_URL}
-#    entrypoint: bash /home/rundeck/run.sh
+    image: rdtest:latest
     links:
       - mysql
     environment:
       - RUNDECK_NODE=rundeck1
-      - RUNDECK_URL=http://rundeck1:4440/
+      - RUNDECK_URL=http://rundeck1:4440
       - LAUNCHER_URL=${LAUNCHER_URL}
       - CLI_DEB_URL=${CLI_DEB_URL}
       - CLI_VERS=${CLI_VERS}
@@ -37,11 +31,11 @@ services:
       - TEST_NC_HOST=rundeck1
       - WAIT_NODES=rundeck1
       - CONFIG_SCRIPT_PRESTART=scripts/config-db.sh
+      - "STARTUP_FAILURE_MSG=MySQLSyntaxErrorException"
       - DATABASE_DRIVER=com.mysql.jdbc.Driver
-      - DATABASE_URL=jdbc:mysql://mysql:3306/rundeck?autoReconnect=true&useUnicode=yes
+      - DATABASE_URL=jdbc:mysql://mysql:3306/rundeck?autoReconnect=true&useUnicode=yes&useSSL=false
       - DATABASE_USER=rundeck
       - DATABASE_PASS=rundeck
-      - DATABASE_DIALECT=org.hibernate.dialect.MySQL5InnoDBDialect
     volumes:
       - logs:/home/rundeck/logs:rw
       - resources:/home/rundeck/resources:rw

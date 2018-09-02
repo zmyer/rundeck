@@ -1,41 +1,26 @@
-Release 2.8.4
+Release 3.0.5
 ===========
 
-Date: 2017-07-12
+Date: 2018-08-28
 
-Name: <span style="color: Purple"><span class="glyphicon glyphicon-gift"></span> "cafe cubano purple gift"</span>
-
-## Upgrading from 2.8.0
-
-**Important Note**: please see the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html) if you are using Mysql or H2 database,
-and are upgrading from Rundeck 2.8.0.
-
-A DB schema change requires a manual fix before upgrading.
-
-## Upgrading from Earlier versions
-
-* See the [Upgrading Guide](http://rundeck.org/docs/upgrading/index.html)
+Name: <span style="color: coral"><span class="glyphicon glyphicon-camera"></span> "jalapeño popper coral camera"</span>
 
 ## Notes
 
-This release is primarily bug fixes. 
+This rescue release addresses shadowed imports due to import optimization.
 
 ## Contributors
 
-* GitHub (web-flow)
 * Greg Schueler (gschueler)
-* René Kroon
 
 ## Bug Reporters
 
-* JustRiedy
-* ReneKroon
-* simple365
+* gschueler
 
 ## Issues
 
-[Milestone 2.8.4](https://github.com/rundeck/rundeck/milestone/57)
+[Milestone 3.0.5](https://github.com/rundeck/rundeck/milestone/85)
 
-* [Mysql syntax error after login](https://github.com/rundeck/rundeck/issues/2609)
-* [Move to Gradle 3.5](https://github.com/rundeck/rundeck/pull/2600)
-* [Node List - Fails to display greater than 100 nodes per page](https://github.com/rundeck/rundeck/issues/2514)
+* [No such property: FrameworkProject for class: rundeck.controllers.FrameworkController](https://github.com/rundeck/rundeck/issues/3938)
+* [Add spec unit test for saveProjectNodeSources](https://github.com/rundeck/rundeck/pull/3933)
+* [Revert "cleanup: optimize imports"](https://github.com/rundeck/rundeck/pull/3931)

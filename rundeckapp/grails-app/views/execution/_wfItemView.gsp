@@ -22,25 +22,32 @@
     Created: Jul 26, 2010 5:12:38 PM
     $Id$
  --%>
-            <g:set var="jobitem" value="${item.instanceOf(JobExec)|| (item instanceof java.util.Map && item.jobName)}"/>
+            <g:set var="jobitem" value="${item.instanceOf(JobExec)|| (item instanceof java.util.Map && (item.jobName || item.uuid))}"/>
             <g:set var="pluginitem" value="${item.instanceOf(PluginStep)}"/>
             <span class="${edit?'autohilite autoedit':''} wfitem ${jobitem?'jobtype':pluginitem?'plugintype':'exectype'}" title="${edit?'Click to edit':''}">
             <g:if test="${jobitem}">
-
                 %{--Display job icon and name--}%
-                <g:set var="foundjob" value="${edit?null:ScheduledExecution.findScheduledExecution(item.jobGroup?item.jobGroup:null,item.jobName,project)}"/>
+                <g:set var="foundjob" value="${edit?null:ScheduledExecution.findScheduledExecution(item.jobGroup?item.jobGroup:null,item.jobName,item.jobProject?item.jobProject:project,item.uuid)}"/>
                 <g:if test="${foundjob}">
                 <g:link controller="scheduledExecution" action="show" id="${foundjob.extid}">
                     <g:if test="${!noimgs }">
                         <i class="glyphicon glyphicon-book"></i>
                     </g:if>
-                    <g:enc>${(item.jobGroup?item.jobGroup+'/':'')+item.jobName}</g:enc></g:link>
+                    <g:enc>${(item.jobGroup?item.jobGroup+'/':'')+(item.jobName?:item.uuid) + (item.jobProject?' (' + item.jobProject+') ':'') }</g:enc></g:link>
                 </g:if>
                 <g:else>
                     <g:if test="${!noimgs }">
-                        <i class="glyphicon glyphicon-book"></i>
+                        <g:if test="${!edit }">
+                            <i class="glyphicon glyphicon-remove-circle"></i>
+                        </g:if>
+                        <g:else>
+                            <i class="glyphicon glyphicon-book"></i>
+                        </g:else>
                     </g:if>
-                    <g:enc>${(item.jobGroup?item.jobGroup+'/':'')+item.jobName}</g:enc>
+                    <g:enc>${(item.jobGroup?item.jobGroup+'/':'')+(item.jobName?:item.uuid) + (item.jobProject?' (' + item.jobProject+') ':'') }</g:enc>
+                    <g:if test="${!edit }">
+                        <label class="text-danger"><g:message code="jobreference.wrong" /></label>
+                    </g:if>
                 </g:else>
 
                 %{--display step description--}%
@@ -112,7 +119,7 @@
                     </g:else>
                 </g:elseif>
                 <g:if test="${item.scriptInterpreter}">
-                    <span class="text-muted"><g:message code="executed.as" />:</span>
+                    <span class="text-primary"><g:message code="executed.as" />:</span>
                     <span class="argString">
                         <g:enc>${item.scriptInterpreter}</g:enc>
                         <g:if test="${item.interpreterArgsQuoted}">

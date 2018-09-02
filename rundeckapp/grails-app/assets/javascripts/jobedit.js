@@ -54,7 +54,7 @@ function _removeOptionName(name) {
     var findname = function (e) {
         return e.name === name;
     };
-    var found = _jobOptionData.find(findname);
+    var found = _jobOptionData.findIndex(findname);
     if (found >= 0) {
         _jobOptionData.splice(found, 1);
     }
@@ -85,6 +85,7 @@ function _jobVarData() {
         var jobdata = {
             'id': {title: 'Job ID'},
             'execid': {title: 'Execution ID'},
+            'executionType': {title: 'Execution Type'},
             'name': {title: 'Job Name'},
             'group': {title: 'Job Group'},
             'username': {title: 'Name of user executing the job'},
@@ -92,9 +93,12 @@ function _jobVarData() {
             'loglevel': {title: 'Execution log level', desc: 'Logging level, one of: INFO, DEBUG'},
             'user.email': {title: 'Email of user executing the job'},
             'retryAttempt': {title: 'Retry attempt number'},
-            'wasRetry': {title: 'True if execution is a retry'}
+            'retryInitialExecId': {title: 'Retry Original Execution ID'},
+            'wasRetry': {title: 'True if execution is a retry'},
+            'threadcount': {title: 'Job Threadcount'},
+            'filter': {title: 'Job Node Filter Query'}
         };
-        ['id', 'execid', 'name', 'group', 'username', 'project', 'loglevel', 'user.email', 'retryAttempt', 'wasRetry'].each(function (e) {
+        ['id', 'execid', 'executionType', 'name', 'group', 'username', 'project', 'loglevel', 'user.email', 'retryAttempt', 'wasRetry', 'threadcount', 'filter','retryInitialExecId'].each(function (e) {
             _VAR_DATA['job'].push({key: 'job.' + e, category: 'Job', title: jobdata[e].title, desc: jobdata[e].desc});
         });
     }
@@ -175,7 +179,7 @@ function postLoadItemEdit(item, iseh, isnodestep) {
         if (isscriptStep) {
             var key = liitem.find('._wfiedit').data('rkey');
             if (key) {
-                workflowEditor.steps()[key].guessAceMode.subscribe(function (val) {
+                workflowEditor.scriptSteps()[key].guessAceMode.subscribe(function (val) {
                     setAceSyntaxMode(val, editor);
                 });
             }
@@ -184,7 +188,7 @@ function postLoadItemEdit(item, iseh, isnodestep) {
         var obj = jQuery(elem);
         if (obj.hasClass('context_env_autocomplete')) {
             var key = liitem.find('._wfiedit').data('rkey');
-            return (key && workflowEditor.steps()[key] && workflowEditor.steps()[key].guessAceMode() || 'sh');
+            return (key && workflowEditor.scriptSteps()[key] && workflowEditor.scriptSteps()[key].guessAceMode() || 'sh');
         }
         return null;
     });
@@ -246,6 +250,16 @@ function addWfAutocomplete(liitem, iseh, isnodestepfunc, istextareatemplatemode,
                     desc: 'For option: ' + _jobOptionData[x].name
                 }
             });
+            if(_jobOptionData[x].multivalued == true){
+                expvars.push({
+                    value: mkvar('option.' + _jobOptionData[x].name + '.delimiter' ),
+                    data: {
+                        category: 'Options',
+                        title: 'Option Delimeter value',
+                        desc: 'For option: ' + _jobOptionData[x].name
+                    }
+                });
+            }
             if (mode) {
                 expvars.push({
                     value: mkmodevar('option.' + _jobOptionData[x].name),
@@ -255,6 +269,17 @@ function addWfAutocomplete(liitem, iseh, isnodestepfunc, istextareatemplatemode,
                         desc: 'For option: ' + _jobOptionData[x].name
                     }
                 });
+
+                if(_jobOptionData[x].multivalued == true){
+                    expvars.push({
+                        value: mkmodevar('option.' + _jobOptionData[x].name + '.delimiter' ),
+                        data: {
+                            category: 'Options',
+                            title: 'Option value',
+                            desc: 'For option: ' + _jobOptionData[x].name
+                        }
+                    });
+                }
             }
             if (_jobOptionData[x].type == 'file') {
                 expvars.push({
@@ -359,6 +384,33 @@ function addWfAutocomplete(liitem, iseh, isnodestepfunc, istextareatemplatemode,
         })
     });
 }
+function _initJobPickerAutocomplete(uuid,nameid, groupid, projid) {
+    "use strict";
+    var currentProject = jQuery('#schedEditFrameworkProject').val();
+    jQuery("#" + nameid).devbridgeAutocomplete({
+        minChars: 0,
+        deferRequestBy: 500,
+        lookup: function (q, callback) {
+            var project = projid && jQuery('#' + projid).val() || currentProject;
+            var results = jQuery.ajax({
+                url: _genUrl(appLinks.menuJobSearchJson, {jobFilter: q, project: project, runAuthRequired: true}),
+                success: function (data, x) {
+                    callback({
+                        suggestions: jQuery.map(data, function (item) {
+                            return {value: item.name, data: item};
+                        })
+                    });
+                }
+            });
+        },
+        onSelect: function (selected) {
+            //set group from selected job
+            jQuery('#' + groupid).val(selected.data.group);
+            //set uuid
+            jQuery('#' + uuid).val(selected.data.id);
+        }
+    });
+}
 var _iseditting=null;
 function _wfiedit(key,num,isErrorHandler) {
     if(_iseditting){
@@ -373,6 +425,10 @@ function _wfiedit(key,num,isErrorHandler) {
         _hideWFItemControls(key);
         postLoadItemEdit('#wfli_' + key, isErrorHandler);
     });
+}
+
+function _wficopy(key,num,isErrorHandler) {
+    _ajaxWFAction(appLinks.workflowCopy,{num:num,edit:true});
 }
 
 function _wfiview(key,num,isErrorHandler) {
@@ -397,6 +453,10 @@ function _wfisave(key,num, formelem,iseh) {
                 _showWFItemControls();
                 if (iseh) {
                     _hideWFItemControlsAddEH(num);
+                    if (litem.parent().closest('li').find('.wfitem.jobtype').size() > 0) {
+                        //disable the config button
+                        _disableWFItemControlsConfigButton(num)
+                    }
                 }
             }else{
                 postLoadItemEdit('#wfli_' + key, iseh);
@@ -504,6 +564,7 @@ function _hideWFItemControls(item) {
     jQuery('#workflowContent').find('span.wfitemcontrols').hide();
     jQuery('#wfundoredo,#wfnewbutton').hide();
     _iseditting=item;
+    _disableWfDragdrop();
 }
 function _updateEmptyMessage() {
     var x = jQuery('#workflowContent').find('ol li');
@@ -523,7 +584,11 @@ function _showWFItemControls() {
 }
 function _hideWFItemControlsAddEH(num){
     var lielem=jQuery('#wfli_'+num);
-    lielem.find('.wfitem_add_errorhandler').hide();
+    lielem.find('.wfitem_add_errorhandler').parent().hide();
+}
+function _disableWFItemControlsConfigButton(num){
+    var lielem=jQuery('#wfli_'+num);
+    lielem.find('.wfitemcontrols .btn-group button.dropdown-toggle').attr('disabled','disabled');
 }
 
 function _evtNewEHChooseType(evt){
@@ -656,53 +721,123 @@ function _updateWFUndoRedo() {
 
 
 ///Drag drop
-function moveDragItem(dragged, droparea) {
-    var num = jQuery(dragged).data('wfitemnum');
-    var to = jQuery(droparea).data('wfitemnum');
+var wfDragger;
+var wfDragDropSelect = "#workflowContent ol>li";
 
-    if (to > num) {
-        to = to - 1;
-    }
-
-    _doMoveItem(num, to);
+function _disableWfDragdrop() {
+    jQuery(wfDragDropSelect).attr('draggable', false);
+    jQuery(wfDragDropSelect).off();
 }
 function _enableWFDragdrop() {
     "use strict";
-    _enableDragdrop("#workflowContent ol>li","workflowDropfinal",moveDragItem);
+
+    wfDragger = _enableDragdrop(
+        wfDragDropSelect,
+        null,
+        function (elem) {
+            return jQuery.extend({}, jQuery(elem).data());
+        },
+        function (datafrom, datato) {
+            if (datafrom.wfitemnum < datato.wfitemnum) {
+                return 'hoverActiveDown';
+            } else if (datafrom.wfitemnum > datato.wfitemnum) {
+                return 'hoverActiveUp';
+            }
+            return null;
+        },
+        ['hoverActiveUp', 'hoverActiveDown'],
+        function (from, to) {
+            _doMoveItem(from.wfitemnum, to.wfitemnum);
+        }
+    );
 }
-function _enableDragdrop(select, finalid, callback) {
-    $$(select).each(function (item) {
-        new Draggable(
-            item,
-            {
-                revert: 'failure',
-                ghosting: false,
-                constraint: 'vertical',
-                handle: 'dragHandle',
-                scroll: window,
-                onStart: function (d) {
-                    $(finalid).show();
-                },
-                onEnd: function (d) {
-                    $(finalid).hide();
-                }
-            }
+
+function _enableDragdrop(select, finalid, getdata, hovercss, allcss, callback) {
+    var dragger = {
+        //data from drag source
+        dragged    : null,
+        //currently dragged source elem
+        draggedElem: null,
+        //array of drop elements
+        allowed    : []
+    };
+
+    var dragStart = function (evt) {
+        var oEvt = evt.originalEvent;
+        dragger.draggedElem = oEvt.target;
+        dragger.dragged = getdata(oEvt.target);
+        oEvt.dataTransfer.setData('text/x-rd-data', dragger.dragged);
+        oEvt.dataTransfer.dropEffect = 'move';
+        oEvt.dataTransfer.effectAllowed = 'move';
+
+        if (finalid) {
+            jQuery("#" + finalid).show();
+        }
+        return true;
+    };
+    var allowDrop = function (evt) {
+        if (!dragger.draggedElem) {
+            //not currently dragging one of my expected draggables
+            return;
+        }
+        if (evt.originalEvent.currentTarget === dragger.draggedElem) {
+            return;
+        }
+        evt.preventDefault();
+        var css = hovercss(
+            dragger.dragged,
+            getdata(evt.originalEvent.currentTarget)
         );
-        Droppables.add(item, {
-                hoverclass: 'hoverActive',
-                onDrop: callback
-            }
-        );
-        $(item).addClassName("ready");
-    });
-    $$('#' + finalid).each(function (item) {
-        Droppables.add(item, {
-                hoverclass: 'hoverActive',
-                onDrop: callback
-            }
-        );
-        $(item).addClassName("ready");
-    });
+
+        if (css) {
+            jQuery(evt.originalEvent.currentTarget).addClass(css);
+        }
+        return false;
+    };
+    var dragend = function (evt) {
+        jQuery(dragger.allowed).removeClass(allcss.join(' '));
+        if (finalid) {
+            jQuery("#" + finalid).hide();
+        }
+        dragger.draggedElem = null;
+        return false;
+    };
+    var dragleave = function (evt) {
+        evt.preventDefault();
+        jQuery(evt.originalEvent.target).removeClass(allcss.join(' '));
+        return false;
+    };
+    var drop = function (evt) {
+        evt.preventDefault();
+        var fromdata = dragger.dragged;
+        var todata = getdata(evt.delegateTarget);
+        jQuery(dragger.allowed).off();
+        dragend();
+        callback(jQuery.extend({}, fromdata), jQuery.extend({}, todata));
+        return false;
+    };
+
+
+    dragger.allowed = jQuery(select).toArray();
+
+
+    jQuery(select).attr('draggable', 'true')
+                  .on('dragstart', dragStart)
+                  .on('dragover', allowDrop)
+                  .on('dragleave', dragleave)
+                  .on('dragend', dragend)
+                  .on('drop', drop);
+    if (finalid) {
+        var finalElem = jQuery("#" + finalid);
+        dragger.allowed.push(finalElem[0]);
+        finalElem
+            .on('dragover', allowDrop)
+            .on('drop', drop)
+            .on('dragleave', dragleave)
+            .on('dragend', dragend)
+            .addClass('ready');
+    }
+    return dragger;
 }
 /** end wf edit code */
 
@@ -748,9 +883,34 @@ function _showOptControls() {
     clearHtml('optsload');
 }
 
+var optsDragger;
+
+var optsDragDropSelect = "#optionContent ul>li";
+
+function _disableOptDragdrop() {
+    jQuery(optsDragDropSelect).attr('draggable', false).off();
+    jQuery("#optionDropFinal").attr('draggable', false).off();
+}
 function _enableOptDragDrop(){
     "use strict";
-    _enableDragdrop('#optionContent ul>li','optionDropFinal',_dragReorderOption);
+    optsDragger = _enableDragdrop(
+        optsDragDropSelect,
+        'optionDropFinal',
+        function (elem) {
+            return jQuery.extend({}, jQuery(elem).data());
+        },
+        function (datafrom, datato) {
+            if (datato.isFinal) {
+                return 'hoverActiveAll';
+            } else if (datafrom.optName !== datato.optName) {
+                return 'hoverActiveUp';
+            }
+            return null;
+        },
+
+        ['hoverActiveUp', 'hoverActiveAll'],
+        _dragReorderOption
+    );
 }
 function _showOptEmptyMessage() {
     var x = $('optionsContent').down('ul li');
@@ -766,6 +926,7 @@ function _hideOptControls() {
     $$('#optionsContent .opteditcontrols').each(Element.hide);
     $('optnewbutton').hide();
     clearHtml('optsload');
+    _disableOptDragdrop();
 }
 function _updateOptsUndoRedo() {
     var params = {};
@@ -827,12 +988,17 @@ function _optview(name, target) {
 function _optsave(formelem, tokendataid, target) {
     jobWasEdited();
     $('optsload').loading();
+    var optname = jQuery('#' + formelem + ' :input[name=name]').val();
+    var opttype = jQuery('#' + formelem + ' :input[name=type]').val();
+    var multivalued = jQuery('#' + formelem + ' :input[name=multivalued]:checked').val() == "true" ? true : false
     jQuery.ajax({
         type: "POST",
         url:_genUrl(appLinks.editOptsSave,{jobWasScheduled:_isjobScheduled()}),
         data: jQuery('#'+formelem+" :input").serialize(),
         beforeSend: _ajaxSendTokens.curry(tokendataid),
         success:function(data,status,xhr){
+            _removeOptionName(optname);
+            _addOption({name: optname, type: opttype, multivalued: multivalued});
             jQuery(target).html(data);
             if (jQuery(target).find('div.optEditForm').length<1) {
                 _showOptControls();
@@ -915,6 +1081,7 @@ function _optsavenew(formelem,tokendataid) {
     var params = jQuery('#'+formelem+' :input').serialize();
     var optname = jQuery('#' + formelem + ' :input[name=name]').val();
     var opttype = jQuery('#' + formelem + ' :input[name=type]').val();
+    var multivalued = jQuery('#' + formelem + ' :input[name=multivalued]:checked').val() == "true" ? true : false
     $('optsload').loading();
     jQuery.ajax({
         type: "POST",
@@ -923,7 +1090,7 @@ function _optsavenew(formelem,tokendataid) {
         beforeSend: _ajaxSendTokens.curry(tokendataid),
         success: function (data, status, xhr) {
             jQuery(newoptli).html(data);
-            _addOption({name: optname, type: opttype});
+            _addOption({name: optname, type: opttype, multivalued: multivalued});
             if (!newoptli.down('div.optEditForm')) {
                 $(newoptli).highlight();
                 newoptli = null;
@@ -961,19 +1128,18 @@ function _doRemoveOption(name, elem,tokendataid) {
         }
     );
 }
-function _dragReorderOption(dragged,drop){
+
+function _dragReorderOption(fromData, toData) {
     "use strict";
-    var optName = jQuery(dragged).data('optName');
-    var toOptName = jQuery(drop).data('optName');
     var data={};
-    if(!toOptName && jQuery(drop).data('isFinal')){
+    if (!toData.optName && toData.isFinal) {
         data={end:true};
     }else{
-        data={before:toOptName};
+        data = {before: toData.optName};
     }
 
 
-    _doReorderOption(optName, data);
+    _doReorderOption(fromData.optName, data);
 
 }
 function _doReorderOption(name,data) {
@@ -1056,39 +1222,50 @@ function _doRevertOptsAction() {
 }
 
 //job chooser
+var uuidField;
 var jobNameFieldId;
 var jobGroupFieldId;
-function jobChosen(name, group) {
+function jobChosen(uuid, name, group, elem) {
     jobWasEdited();
-    if (jobNameFieldId && jobGroupFieldId) {
+    if (uuidField && jobNameFieldId && jobGroupFieldId) {
+        jQuery('#' + uuidField).val(uuid);
         jQuery('#' + jobNameFieldId).val(name);
         jQuery('#' + jobGroupFieldId).val(group);
+        doyftsuccess(uuidField);
+        doyftsuccess(jobNameFieldId);
+        doyftsuccess(jobGroupFieldId);
     }
-    hideJobChooser();
+    if (jQuery(elem).closest('.modal').length === 1) {
+        jQuery(elem).closest('.modal').modal('hide');
+    }
 }
-function loadJobChooser(elem, nameid, groupid) {
+
+function loadJobChooserModal(elem, uuid, nameid, groupid, projectid, modalid, modalcontentid) {
     if (jQuery(elem).hasClass('active')) {
-        hideJobChooser();
+        jQuery('#' + modalid).modal('hide');
         return;
     }
+    uuidField = uuid;
     jobNameFieldId = nameid;
     jobGroupFieldId = groupid;
     var project = selFrameworkProject;
+
+    if (projectid) {
+        project = jQuery('#' + projectid).val();
+    }
     jQuery(elem).button('loading').addClass('active');
     jQuery.ajax({
-        url:_genUrl(appLinks.menuJobsPicker, {jobsjscallback: 'true', runAuthRequired: true}),
-        success: function (resp, status, jqxhr){
-            jQuery(elem).popover({html: true, container: 'body', placement: 'left', content: resp, trigger: 'manual'}).popover('show');
-            jQuery(elem).button('reset');
+        url: _genUrl(appLinks.menuJobsPicker, {jobsjscallback: 'true', runAuthRequired: true, projFilter: project}),
+        success: function (resp, status, jqxhr) {
+            jQuery(elem).button('reset').removeClass('active');
+            jQuery('#' + modalcontentid).html(resp);
+            jQuery('#' + modalid).modal('show');
         },
-        error: function (resp, status, jqxhr){
+        error: function (resp, status, jqxhr) {
             showError("Error performing request: menuJobsPicker: " + transport);
-            jQuery(elem).button('reset');
+            jQuery(elem).button('reset').removeClass('active');
         }
     });
-}
-function hideJobChooser() {
-    jQuery('.btn.act_choose_job').removeClass('active').button('reset').popover('hide');
 }
 
 //group chooser

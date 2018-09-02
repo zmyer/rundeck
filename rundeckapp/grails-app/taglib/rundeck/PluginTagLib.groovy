@@ -25,7 +25,7 @@ class PluginTagLib {
     def static namespace = "stepplugin"
     def FrameworkService frameworkService
     def UiPluginService uiPluginService
-    static returnObjectForTags = ['messageText']
+    static returnObjectForTags = ['messageText','pluginIconSrc']
 
     def display={attrs,body->
         def step=attrs.step
@@ -46,20 +46,9 @@ class PluginTagLib {
     }
 
     def pluginIcon = { attrs, body ->
-        def service = attrs.remove('service')
-        def name = attrs.remove('name')
-
-        if (!service || !name) {
-            out << body()
-            return
-        }
-        def profile = uiPluginService.getProfileFor(service, name)
-        if (profile.icon) {
-            attrs.src = createLink(
-                    controller: 'plugin',
-                    action: 'pluginIcon',
-                    params: [service: service, name: name]
-            )
+        def iconSrc = pluginIconSrc(attrs, body)
+        if (iconSrc) {
+            attrs.src = iconSrc
             out << '<img '
             attrs.each { k, v ->
                 if (v) {
@@ -70,6 +59,23 @@ class PluginTagLib {
         } else {
             out << body()
         }
+    }
+    def pluginIconSrc = { attrs, body ->
+        def service = attrs.remove('service')
+        def name = attrs.remove('name')
+
+        if (!service || !name) {
+            return null
+        }
+        def profile = uiPluginService.getProfileFor(service, name)
+        if (profile.icon) {
+            return createLink(
+                    controller: 'plugin',
+                    action: 'pluginIcon',
+                    params: [service: service, name: name]
+            )
+        }
+        return null
     }
     /**
      * Write plugin i18n message or default to html with encoding
@@ -96,16 +102,28 @@ class PluginTagLib {
         def plugin = attrs.name
         def code = attrs.code
         def defaultmsg = attrs.default
+        def messagesType = attrs.messagesType
         def messages = [:]
-        if (service && plugin) {
-            messages = uiPluginService.getMessagesFor(service, plugin, RequestContextUtils.getLocale(request))
-        }
-        def foundcode = [
+        if (!messagesType || messagesType in ['plugin']) {
+            if (service && plugin) {
+                messages = uiPluginService.getMessagesFor(service, plugin, RequestContextUtils.getLocale(request))
+            }
+            def foundcode = [
                 service + '.' + plugin + '.' + code,
                 plugin + '.' + code,
                 service + '.' + code,
                 code,
-        ].find { messages[it] }
-        return (foundcode != null ? messages[foundcode] : defaultmsg)
+            ].find { messages[it] }
+            return (foundcode != null ? messages[foundcode] : defaultmsg)
+        } else if (messagesType) {
+            def testCodes = [messagesType + '.' + code, code]
+            for (def c : testCodes) {
+                def msg = g.message(code: c, default: c)
+                if(msg!=c){
+                    return msg
+                }
+            }
+            return defaultmsg
+        }
     }
 }

@@ -31,6 +31,7 @@ import com.dtolabs.rundeck.core.common.Framework
 import com.dtolabs.rundeck.core.common.INodeEntry
 import com.dtolabs.rundeck.core.utils.NodeSet
 import com.dtolabs.rundeck.core.utils.OptsUtil
+import com.dtolabs.rundeck.plugins.logging.LogFilterPlugin
 import com.dtolabs.rundeck.server.authorization.AuthConstants
 import grails.converters.JSON
 import groovy.xml.MarkupBuilder
@@ -47,10 +48,12 @@ import org.apache.commons.httpclient.util.DateParseException
 import org.apache.commons.httpclient.util.DateUtil
 import org.apache.log4j.Logger
 import org.apache.log4j.MDC
-import org.codehaus.groovy.grails.web.json.JSONElement
+import org.grails.web.json.JSONElement
+import org.grails.web.json.JSONObject
 import org.quartz.CronExpression
 import org.quartz.Scheduler
 import org.rundeck.util.Toposort
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.multipart.MultipartHttpServletRequest
 import org.springframework.web.multipart.MultipartRequest
@@ -58,7 +61,7 @@ import org.springframework.web.multipart.commons.CommonsMultipartFile
 import rundeck.*
 import rundeck.codecs.JobsXMLCodec
 import rundeck.codecs.JobsYAMLCodec
-import rundeck.filters.ApiRequestFilters
+import com.dtolabs.rundeck.app.api.ApiVersions
 import rundeck.services.*
 
 import javax.servlet.http.HttpServletResponse
@@ -86,6 +89,21 @@ class ScheduledExecutionController  extends ControllerBase{
     public static final String ONSUCCESS_TRIGGER_NAME = 'onsuccess'
     public static final String ONFAILURE_TRIGGER_NAME = 'onfailure'
     public static final String ONSTART_TRIGGER_NAME = 'onstart'
+    public static final String OVERAVGDURATION_TRIGGER_NAME = 'onavgduration'
+    public static final String ONRETRYABLEFAILURE_TRIGGER_NAME = 'onretryablefailure'
+    public static final String NOTIFY_OVERAVGDURATION_EMAIL = 'notifyAvgDurationEmail'
+    public static final String NOTIFY_OVERAVGDURATION_URL = 'notifyAvgDurationUrl'
+    public static final String NOTIFY_ONOVERAVGDURATION_URL = 'notifyOnAvgDurationUrl'
+    public static final String NOTIFY_OVERAVGDURATION_RECIPIENTS = 'notifyAvgDurationRecipients'
+    public static final String NOTIFY_OVERAVGDURATION_SUBJECT = 'notifyAvgDurationSubject'
+    public static final String NOTIFY_ONRETRYABLEFAILURE_URL = 'notifyOnRetryableFailureUrl'
+    public static final String NOTIFY_ONRETRYABLEFAILURE_EMAIL = 'notifyOnRetryableFailureEmail'
+    public static final String NOTIFY_RETRYABLEFAILURE_EMAIL = 'notifyRetryableFailureEmail'
+    public static final String NOTIFY_RETRYABLEFAILURE_URL = 'notifyRetryableFailureUrl'
+    public static final String NOTIFY_RETRYABLEFAILURE_RECIPIENTS = 'notifyRetryableFailureRecipients'
+    public static final String NOTIFY_RETRYABLEFAILURE_SUBJECT = 'notifyRetryableFailureSubject'
+    public static final String NOTIFY_RETRYABLEFAILURE_ATTACH= 'notifyFailureAttach'
+
     public static final String EMAIL_NOTIFICATION_TYPE = 'email'
     public static final String WEBHOOK_NOTIFICATION_TYPE = 'url'
     public static final ArrayList<String> NOTIFICATION_ENABLE_FIELD_NAMES = [
@@ -94,8 +112,14 @@ class ScheduledExecutionController  extends ControllerBase{
             NOTIFY_ONSUCCESS_EMAIL,
             NOTIFY_ONSUCCESS_URL,
             NOTIFY_ONSTART_EMAIL,
-            NOTIFY_ONSTART_URL
+            NOTIFY_ONSTART_URL,
+            NOTIFY_OVERAVGDURATION_EMAIL,
+            NOTIFY_ONOVERAVGDURATION_URL,
+            NOTIFY_ONRETRYABLEFAILURE_EMAIL,
+            NOTIFY_ONRETRYABLEFAILURE_URL
     ]
+
+    public final String REMOTE_OPTION_DISABLE_JSON_CHECK = 'project.jobs.disableRemoteOptionJsonCheck'
 
     def Scheduler quartzScheduler
     def ExecutionService executionService
@@ -151,7 +175,8 @@ class ScheduledExecutionController  extends ControllerBase{
             apiRunCommandv14             : ['POST', 'GET'],
             apiJobDeleteBulk             : ['DELETE', 'POST'],
             apiJobClusterTakeoverSchedule: 'PUT',
-            apiJobUpdateSingle           : 'PUT'
+            apiJobUpdateSingle           : 'PUT',
+            apiJobRetry                  : 'POST'
     ]
 
     def cancel (){
@@ -227,15 +252,15 @@ class ScheduledExecutionController  extends ControllerBase{
         }
         AuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject,scheduledExecution.project)
         if (!unauthorizedResponse(
-                frameworkService.authorizeProjectJobAll(
-                        authContext,
-                        scheduledExecution,
-                        [AuthConstants.ACTION_READ],
-                        scheduledExecution.project
+            frameworkService.authorizeProjectJobAny(
+                authContext,
+                scheduledExecution,
+                [AuthConstants.ACTION_READ, AuthConstants.ACTION_VIEW],
+                scheduledExecution.project
                 ),
-                AuthConstants.ACTION_READ,
-                'Job',
-                params.id
+            AuthConstants.ACTION_VIEW,
+            'Job',
+            params.id
             )
         ) {
 
@@ -250,7 +275,7 @@ class ScheduledExecutionController  extends ControllerBase{
                                                                  [AuthConstants.ACTION_ADMIN, AuthConstants.ACTION_EXPORT])) {
                 if(scmService.projectHasConfiguredExportPlugin(params.project)) {
                     model.scmExportEnabled = true
-                    model.scmExportStatus = scmService.exportStatusForJobs([scheduledExecution])
+                    model.scmExportStatus = scmService.exportStatusForJobs(authContext, [scheduledExecution])
                     model.scmExportRenamedPath=scmService.getRenamedJobPathsForProject(params.project)?.get(scheduledExecution.extid)
                 }
             }
@@ -259,7 +284,7 @@ class ScheduledExecutionController  extends ControllerBase{
                                                                  [AuthConstants.ACTION_ADMIN, AuthConstants.ACTION_IMPORT])) {
                 if(scmService.projectHasConfiguredPlugin('import',params.project)) {
                     model.scmImportEnabled = true
-                    model.scmImportStatus = scmService.importStatusForJobs([scheduledExecution])
+                    model.scmImportStatus = scmService.importStatusForJobs(authContext, [scheduledExecution])
                 }
             }
             render(template: '/scheduledExecution/jobActionButtonMenuContent', model: model)
@@ -273,7 +298,11 @@ class ScheduledExecutionController  extends ControllerBase{
 
         def total = -1
         if (keys.contains('total') || !keys) {
-            total = Execution.countByScheduledExecution(scheduledExecution)
+            def minLevel = grailsApplication.config.rundeck.min?.isolation?.level
+            def isolationLevel = (minLevel && minLevel=='UNCOMMITTED')?TransactionDefinition.ISOLATION_READ_UNCOMMITTED:TransactionDefinition.ISOLATION_DEFAULT
+            total = Execution.withTransaction([isolationLevel: isolationLevel]) {
+                Execution.countByScheduledExecution(scheduledExecution)
+            }
         }
 
         def remoteClusterNodeUUID = null
@@ -288,7 +317,7 @@ class ScheduledExecutionController  extends ControllerBase{
         }
         def orchestratorPlugins = null
         if (keys.contains('orchestratorPlugins') || !keys) {
-            orchestratorPlugins = orchestratorPluginService.listOrchestratorPlugins()
+            orchestratorPlugins = orchestratorPluginService.getOrchestratorPlugins()
         }
         def nextExecution = null
         if (keys.contains('nextExecution') || !keys) {
@@ -316,8 +345,15 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
         AuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject,scheduledExecution.project)
-        if(unauthorizedResponse(frameworkService.authorizeProjectJobAll(authContext, scheduledExecution,
-                [AuthConstants.ACTION_READ], scheduledExecution.project), AuthConstants.ACTION_READ,'Job',params.id)){
+        if (unauthorizedResponse(
+            frameworkService.authorizeProjectJobAny(
+                authContext, scheduledExecution,
+                [AuthConstants.ACTION_READ, AuthConstants.ACTION_VIEW],
+                scheduledExecution.project
+            ),
+            AuthConstants.ACTION_VIEW,
+            'Job', params.id
+        )) {
             return
         }
         def model=jobDetailData()
@@ -331,8 +367,14 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
         AuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject,scheduledExecution.project)
-        if(unauthorizedResponse(frameworkService.authorizeProjectJobAll(authContext, scheduledExecution,
-                [AuthConstants.ACTION_READ], scheduledExecution.project), AuthConstants.ACTION_READ,'Job',params.id)){
+        if (unauthorizedResponse(
+            frameworkService.authorizeProjectJobAny(
+                authContext, scheduledExecution,
+                [AuthConstants.ACTION_READ, AuthConstants.ACTION_VIEW],
+                scheduledExecution.project
+            ),
+            AuthConstants.ACTION_VIEW, 'Job', params.id
+        )) {
             return
         }
         def model = jobDetailData(['total', 'nextExecution', 'max', 'scheduledExecution'])
@@ -346,10 +388,10 @@ class ScheduledExecutionController  extends ControllerBase{
         }
 
         render(contentType: 'application/json') {
-            total = model.total
-            nextExecution = model.nextExecution
-            nextExecutionW3CTime = model.nextExecutionW3CTime
-            max = model.max
+            total model.total
+            nextExecution model.nextExecution
+            nextExecutionW3CTime model.nextExecutionW3CTime
+            max model.max
             job(
                     id: se.extid,
                     name: (se.jobName),
@@ -373,8 +415,17 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
         AuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject,scheduledExecution.project)
-        if (unauthorizedResponse(frameworkService.authorizeProjectJobAll(authContext, scheduledExecution,
-                [AuthConstants.ACTION_READ], scheduledExecution.project), AuthConstants.ACTION_READ, 'Job', params.id)) {
+        def actions = [AuthConstants.ACTION_READ, AuthConstants.ACTION_VIEW]
+        if (response.format in ['xml', 'yaml']) {
+            actions = [AuthConstants.ACTION_READ]
+        }
+        if (unauthorizedResponse(
+            frameworkService.authorizeProjectJobAny(
+                authContext, scheduledExecution,
+                actions,
+                scheduledExecution.project
+            ), AuthConstants.ACTION_READ, 'Job', params.id
+        )) {
             return
         }
 
@@ -386,7 +437,15 @@ class ScheduledExecutionController  extends ControllerBase{
         crontab = scheduledExecution.timeAndDateAsBooleanMap()
         //list executions using query params and pagination params
 
-        def total = Execution.countByScheduledExecution(scheduledExecution)
+        def minLevel = grailsApplication.config.rundeck.min?.isolation?.level
+        def isolationLevel = (minLevel && minLevel=='UNCOMMITTED')?TransactionDefinition.ISOLATION_READ_UNCOMMITTED:TransactionDefinition.ISOLATION_DEFAULT
+        def total = Execution.withTransaction([isolationLevel: isolationLevel]) {
+            Execution.countByScheduledExecution(scheduledExecution)
+        }
+        def reftotal = 0
+        if(scheduledExecution.refExecCount) {
+            reftotal = scheduledExecution.refExecCount
+        }
 
         def remoteClusterNodeUUID=null
         if (scheduledExecution.scheduled && frameworkService.isClusterModeEnabled()) {
@@ -394,17 +453,24 @@ class ScheduledExecutionController  extends ControllerBase{
         }
 
 
+        def parentList = ReferencedExecution.parentList(scheduledExecution,10)
+        def isReferenced = parentList?.size()>0
+
         def dataMap= [
                 scheduledExecution: scheduledExecution,
+                isReferenced: isReferenced,
+                parentList: parentList,
                 crontab: crontab,
                 params: params,
                 total: total,
+                reftotal: reftotal,
                 nextExecution: scheduledExecutionService.nextExecutionTime(scheduledExecution),
                 remoteClusterNodeUUID: remoteClusterNodeUUID,
                 serverNodeUUID: frameworkService.isClusterModeEnabled()?frameworkService.serverUUID:null,
                 notificationPlugins: notificationService.listNotificationPlugins(),
-				orchestratorPlugins: orchestratorPluginService.listOrchestratorPlugins(),
+				orchestratorPlugins: orchestratorPluginService.getOrchestratorPlugins(),
                 strategyPlugins: scheduledExecutionService.getWorkflowStrategyPluginDescriptions(),
+                logFilterPlugins: pluginService.listPlugins(LogFilterPlugin),
                 max: params.int('max') ?: 10,
                 offset: params.int('offset') ?: 0] + _prepareExecute(scheduledExecution, framework,authContext)
         if (params.opt && (params.opt instanceof Map)) {
@@ -417,7 +483,7 @@ class ScheduledExecutionController  extends ControllerBase{
                                                              [AuthConstants.ACTION_ADMIN, AuthConstants.ACTION_EXPORT])) {
             if(scmService.projectHasConfiguredExportPlugin(params.project)){
                 dataMap.scmExportEnabled = true
-                dataMap.scmExportStatus = scmService.exportStatusForJobs([scheduledExecution])
+                dataMap.scmExportStatus = scmService.exportStatusForJob(scheduledExecution)
                 dataMap.scmExportRenamedPath=scmService.getRenamedJobPathsForProject(params.project)?.get(scheduledExecution.extid)
             }
         }
@@ -426,7 +492,7 @@ class ScheduledExecutionController  extends ControllerBase{
                                                              [AuthConstants.ACTION_ADMIN, AuthConstants.ACTION_IMPORT])) {
             if(scmService.projectHasConfiguredPlugin('import',params.project)) {
                 dataMap.scmImportEnabled = true
-                dataMap.scmImportStatus = scmService.importStatusForJobs([scheduledExecution])
+                dataMap.scmImportStatus = scmService.importStatusForJobs(authContext, [scheduledExecution])
             }
         }
 
@@ -443,24 +509,18 @@ class ScheduledExecutionController  extends ControllerBase{
             }
         }
         dataMap.projectNames = authProjectsToCreate
+
         withFormat{
             html{
                 dataMap
             }
             yaml{
+                response.setHeader("Content-Disposition","attachment; filename=\"${getFname(scheduledExecution.jobName)}.yaml\"")
                 render(text:JobsYAMLCodec.encode([scheduledExecution] as List),contentType:"text/yaml",encoding:"UTF-8")
             }
 
             xml{
-                def fname=scheduledExecution.jobName.replaceAll(' ','_')
-                fname=fname.replaceAll('"','_')
-                fname=fname.replaceAll('\\\\','_')
-                final Pattern s = Pattern.compile("[\\r\\n]")
-                fname=fname.replaceAll(s,'_')
-                if(fname.size()>74){
-                    fname = fname.substring(0,74)
-                }
-                response.setHeader("Content-Disposition","attachment; filename=\"${fname}.xml\"")
+                response.setHeader("Content-Disposition","attachment; filename=\"${getFname(scheduledExecution.jobName)}.xml\"")
                 response.setHeader(Constants.X_RUNDECK_RESULT_HEADER,"Jobs found: 1")
 
                 def writer = new StringWriter()
@@ -470,7 +530,14 @@ class ScheduledExecutionController  extends ControllerBase{
                 render(text:writer.toString(),contentType:"text/xml",encoding:"UTF-8")
             }
         }
-        dataMap
+    }
+    private static String getFname(name){
+        final Pattern s = Pattern.compile("[\\r\\n \"\\\\]")
+        def fname=name.replaceAll(s,'_')
+        if(fname.size()>74){
+            fname = fname.substring(0,74)
+        }
+        fname
     }
     def runbook () {
         log.debug("ScheduledExecutionController: show : params: " + params)
@@ -482,8 +549,13 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
         AuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject,scheduledExecution.project)
-        if (unauthorizedResponse(frameworkService.authorizeProjectJobAll(authContext, scheduledExecution,
-                [AuthConstants.ACTION_READ], scheduledExecution.project), AuthConstants.ACTION_READ, 'Job', params.id)) {
+        if (unauthorizedResponse(
+            frameworkService.authorizeProjectJobAny(
+                authContext, scheduledExecution,
+                [AuthConstants.ACTION_READ, AuthConstants.ACTION_VIEW],
+                scheduledExecution.project
+            ), AuthConstants.ACTION_VIEW, 'Job', params.id
+        )) {
             return
         }
 
@@ -495,7 +567,11 @@ class ScheduledExecutionController  extends ControllerBase{
         crontab = scheduledExecution.timeAndDateAsBooleanMap()
         //list executions using query params and pagination params
 
-        def total = Execution.countByScheduledExecution(scheduledExecution)
+        def minLevel = grailsApplication.config.rundeck.min?.isolation?.level
+        def isolationLevel = (minLevel && minLevel=='UNCOMMITTED')?TransactionDefinition.ISOLATION_READ_UNCOMMITTED:TransactionDefinition.ISOLATION_DEFAULT
+        def total = Execution.withTransaction([isolationLevel: isolationLevel]) {
+            Execution.countByScheduledExecution(scheduledExecution)
+        }
 
         def remoteClusterNodeUUID=null
         if (scheduledExecution.scheduled && frameworkService.isClusterModeEnabled()) {
@@ -512,7 +588,7 @@ class ScheduledExecutionController  extends ControllerBase{
                 remoteClusterNodeUUID: remoteClusterNodeUUID,
                 serverNodeUUID: frameworkService.isClusterModeEnabled()?frameworkService.serverUUID:null,
                 notificationPlugins: notificationService.listNotificationPlugins(),
-				orchestratorPlugins: orchestratorPluginService.listOrchestratorPlugins(),
+				orchestratorPlugins: orchestratorPluginService.getOrchestratorPlugins(),
                 max: params.int('max') ?: 10,
                 offset: params.int('offset') ?: 0] + _prepareExecute(scheduledExecution, framework,authContext)
 
@@ -531,22 +607,29 @@ class ScheduledExecutionController  extends ControllerBase{
                 scheduledExecution.project
         )
         if (unauthorizedResponse(
-                frameworkService.authorizeProjectJobAll(
+                frameworkService.authorizeProjectJobAny(
                         authContext,
                         scheduledExecution,
-                        [AuthConstants.ACTION_READ],
+                        [AuthConstants.ACTION_READ,AuthConstants.ACTION_VIEW],
                         scheduledExecution.project
                 ),
-                AuthConstants.ACTION_READ, 'Job', params.id
+                AuthConstants.ACTION_VIEW, 'Job', params.id
         )) {
             return
         }
         def maxDepth=3
-        def wfdata=scheduledExecutionService.getWorkflowDescriptionTree(scheduledExecution.project,scheduledExecution.workflow,maxDepth)
+
+        def readAuth = frameworkService.authorizeProjectJobAny(
+            authContext,
+            scheduledExecution,
+            [AuthConstants.ACTION_READ],
+            scheduledExecution.project
+        )
+        def wfdata=scheduledExecutionService.getWorkflowDescriptionTree(scheduledExecution.project,scheduledExecution.workflow,readAuth,maxDepth)
         withFormat {
             json {
                 render(contentType: 'application/json') {
-                    workflow= wfdata
+                    workflow wfdata
                 }
             }
         }
@@ -558,7 +641,7 @@ class ScheduledExecutionController  extends ControllerBase{
     def sanitizeHtml(){
         if(request.JSON.content){
             return render(contentType: 'application/json'){
-                content= request.JSON.content.toString().encodeAsSanitizedHTML()
+                content request.JSON.content.toString().encodeAsSanitizedHTML()
             }
         }
         apiService.renderErrorFormat(response, [
@@ -599,8 +682,13 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
         AuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject,scheduledExecution.project)
-        if (unauthorizedResponse(frameworkService.authorizeProjectJobAll(authContext, scheduledExecution,
-                [AuthConstants.ACTION_READ], scheduledExecution.project), AuthConstants.ACTION_READ, 'Job', params.id)) {
+        if (unauthorizedResponse(
+            frameworkService.authorizeProjectJobAny(
+                authContext, scheduledExecution,
+                [AuthConstants.ACTION_READ, AuthConstants.ACTION_VIEW],
+                scheduledExecution.project
+            ), AuthConstants.ACTION_VIEW, 'Job', params.id
+        )) {
             return
         }
         if(!params.option){
@@ -703,7 +791,11 @@ class ScheduledExecutionController  extends ControllerBase{
                     }
                 }
                 try {
-                    remoteResult = getRemoteJSON(srcUrl, timeout, contimeout, retryCount)
+                    def framework = frameworkService.getRundeckFramework()
+                    def projectConfig = framework.projectManager.loadProjectConfig(scheduledExecution.project)
+                    boolean disableRemoteOptionJsonCheck= projectConfig.hasProperty(REMOTE_OPTION_DISABLE_JSON_CHECK)
+
+                    remoteResult = getRemoteJSON(srcUrl, timeout, contimeout, retryCount,disableRemoteOptionJsonCheck)
                     result=remoteResult.json
                     if(remoteResult.stats){
                         remoteStats.putAll(remoteResult.stats)
@@ -730,7 +822,7 @@ class ScheduledExecutionController  extends ControllerBase{
                 if(result){
                     if( result instanceof Collection){
                         result.eachWithIndex { entry,i->
-                            if(entry instanceof org.codehaus.groovy.grails.web.json.JSONObject){
+                            if(entry instanceof JSONObject){
                                 if(!entry.name){
                                     validationerrors<<"Item: ${i} has no 'name' entry"
                                     valid=false;
@@ -744,8 +836,8 @@ class ScheduledExecutionController  extends ControllerBase{
                                 validationerrors << "Item: ${i} expected string or map like {name:\"..\",value:\"..\"}"
                             }
                         }
-                    } else if (result instanceof org.codehaus.groovy.grails.web.json.JSONObject) {
-                        org.codehaus.groovy.grails.web.json.JSONObject jobject = result
+                    } else if (result instanceof JSONObject) {
+                        JSONObject jobject = result
                         result = []
                         jobject.keys().sort().each {k ->
                             result << [name: k, value: jobject.get(k)]
@@ -951,8 +1043,8 @@ class ScheduledExecutionController  extends ControllerBase{
      * @return Map of data, [json: parsed json or null, stats: stats data, error: error message]
      *
      */
-    private Object getRemoteJSON(String url, int timeout, int contimeout, int retry=5){
-        log.warn("getRemoteJSON: "+url+", timeout: "+timeout+", retry: "+retry)
+    private Object getRemoteJSON(String url, int timeout, int contimeout, int retry=5,boolean disableRemoteOptionJsonCheck=false){
+        log.debug("getRemoteJSON: "+url+", timeout: "+timeout+", retry: "+retry)
         //attempt to get the URL JSON data
         def stats=[:]
         if(url.startsWith("http:") || url.startsWith("https:")){
@@ -1021,7 +1113,14 @@ class ScheduledExecutionController  extends ControllerBase{
                         type = type.substring(0, type.indexOf(";")).trim();
                     }
 
-                    if (expectedContentType.equals(type)) {
+                    boolean continueRendering=true
+
+                    if(!disableRemoteOptionJsonCheck &&
+                       !expectedContentType.equals(type)){
+                        continueRendering=false
+                    }
+
+                    if (continueRendering) {
                         final stream = method.getResponseBodyAsStream()
                         final writer = new StringWriter()
                         int len=copyToWriter(new BufferedReader(new InputStreamReader(stream, method.getResponseCharSet())),writer)
@@ -1179,7 +1278,7 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
 
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V14)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V14)) {
             return
         }
 
@@ -1231,7 +1330,7 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
 
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V14)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V14)) {
             return
         }
 
@@ -1312,6 +1411,7 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
         if(request.method=='POST') {
+            def isReferenced = ReferencedExecution.parentList(scheduledExecution,1)?.size()>0
             withForm {
                 def result = scheduledExecutionService.deleteScheduledExecutionById(
                         jobid,
@@ -1325,6 +1425,14 @@ class ScheduledExecutionController  extends ControllerBase{
                 } else {
                     def project = result.success.job ? result.success.job.project : params.project
                     flash.bulkJobResult = [success: [result.success]]
+                    if(isReferenced){
+                        def err = [
+                                message: g.message(code: 'deleted.referenced.job'),
+                                errorCode: 'jobref',
+                                id: jobid
+                        ]
+                        flash.bulkJobResult+=[errors:[err]]
+                    }
                     redirect(controller: 'menu', action: 'jobs', params: [project: project])
                 }
             }.invalidToken {
@@ -1475,7 +1583,7 @@ class ScheduledExecutionController  extends ControllerBase{
         }
     }
     def apiFlipExecutionEnabledBulk(ApiBulkJobDeleteRequest deleteRequest) {
-        if(!apiService.requireVersion(request,response,ApiRequestFilters.V16)){
+        if(!apiService.requireVersion(request,response,ApiVersions.V16)){
             return
         }
         if (deleteRequest.hasErrors()) {
@@ -1554,7 +1662,7 @@ class ScheduledExecutionController  extends ControllerBase{
         }
     }
     def apiFlipScheduleEnabledBulk(ApiBulkJobDeleteRequest deleteRequest) {
-        if(!apiService.requireVersion(request,response,ApiRequestFilters.V16)){
+        if(!apiService.requireVersion(request,response,ApiVersions.V16)){
             return
         }
         if (deleteRequest.hasErrors()) {
@@ -1832,7 +1940,7 @@ class ScheduledExecutionController  extends ControllerBase{
             }
         }
 
-        if (request.api_version < ApiRequestFilters.V14 && !(response.format in ['all','xml'])) {
+        if (request.api_version < ApiVersions.V14 && !(response.format in ['all','xml'])) {
             return apiService.renderErrorXml(response,[
                     status:HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE,
                     code: 'api.error.item.unsupported-format',
@@ -1918,16 +2026,28 @@ class ScheduledExecutionController  extends ControllerBase{
             session.removeAttribute('undoOPTS');
             session.removeAttribute('redoOPTS');
         }
-        def nodeStepTypes = frameworkService.getNodeStepPluginDescriptions()
-        def stepTypes = frameworkService.getStepPluginDescriptions()
+        def nodeStepTypes = frameworkService.getNodeStepPluginDescriptions()?.findAll{
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(it.name,'WorkflowNodeStep')
+        }
+        def stepTypes = frameworkService.getStepPluginDescriptions()?.findAll{
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(it.name,'WorkflowStep')
+        }
         def strategyPlugins = scheduledExecutionService.getWorkflowStrategyPluginDescriptions()
         
         def crontab = scheduledExecution.timeAndDateAsBooleanMap()
 
-        def notificationPlugins = notificationService.listNotificationPlugins()
+        def notificationPlugins = notificationService.listNotificationPlugins().findAll{k,v->
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(k,'Notification')
+        }
 
         def orchestratorPlugins = orchestratorPluginService.listDescriptions()
         def globals=frameworkService.getProjectGlobals(scheduledExecution.project).keySet()
+
+        def timeZones = scheduledExecutionService.getTimeZones()
+        def logFilterPlugins = pluginService.listPlugins(LogFilterPlugin).findAll{k,v->
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(k,'LogFilter')
+        }
+        def fprojects = frameworkService.projectNames(authContext)
         return [scheduledExecution  :scheduledExecution, crontab:crontab, params:params,
                 notificationPlugins : notificationPlugins,
                 orchestratorPlugins : orchestratorPlugins,
@@ -1936,7 +2056,11 @@ class ScheduledExecutionController  extends ControllerBase{
                 authorized          :scheduledExecutionService.userAuthorizedForJob(request,scheduledExecution,authContext),
                 nodeStepDescriptions: nodeStepTypes,
                 stepDescriptions    : stepTypes,
-                globalVars:globals]
+                timeZones           : timeZones,
+                logFilterPlugins    : logFilterPlugins,
+                projectNames        : fprojects,
+                globalVars          : globals
+        ]
     }
 
 
@@ -1984,20 +2108,31 @@ class ScheduledExecutionController  extends ControllerBase{
                     params[it]='false'
                 }
             }
-            def nodeStepTypes = frameworkService.getNodeStepPluginDescriptions()
-            def stepTypes = frameworkService.getStepPluginDescriptions()
+            def nodeStepTypes = frameworkService.getNodeStepPluginDescriptions()?.findAll{
+                !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(it.name,'WorkflowNodeStep')
+            }
+            def stepTypes = frameworkService.getStepPluginDescriptions()?.findAll{
+                !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(it.name,'WorkflowStep')
+            }
             def strategyPlugins = scheduledExecutionService.getWorkflowStrategyPluginDescriptions()
             def globals=frameworkService.getProjectGlobals(scheduledExecution.project).keySet()
+            def logFilterPlugins = pluginService.listPlugins(LogFilterPlugin).findAll{k,v->
+                !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(k,'LogFilter')
+            }
+            def notificationPlugins = notificationService.listNotificationPlugins().findAll{k,v->
+                !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(k,'Notification')
+            }
             return render(view:'edit', model: [scheduledExecution:scheduledExecution,
                        nextExecutionTime:scheduledExecutionService.nextExecutionTime(scheduledExecution),
                     notificationValidation: params['notificationValidation'],
                     nodeStepDescriptions: nodeStepTypes,
                     stepDescriptions: stepTypes,
                     strategyPlugins: strategyPlugins,
-                    notificationPlugins: notificationService.listNotificationPlugins(),
+                    notificationPlugins: notificationPlugins,
                     orchestratorPlugins: orchestratorPluginService.listDescriptions(),
                     params:params,
-                    globalVars:globals
+                    globalVars:globals,
+                    logFilterPlugins:logFilterPlugins
                    ])
         }else{
 
@@ -2016,7 +2151,7 @@ class ScheduledExecutionController  extends ControllerBase{
         }
     }
 
-    def copy = {
+    def copy() {
         def ScheduledExecution scheduledExecution = scheduledExecutionService.getByIDorUUID( params.id )
 
         if (notFoundResponse(scheduledExecution, 'Job', params.id)) {
@@ -2063,19 +2198,40 @@ class ScheduledExecutionController  extends ControllerBase{
         if(newScheduledExecution.scheduled){
             crontab=newScheduledExecution.timeAndDateAsBooleanMap()
         }
-        def nodeStepTypes = frameworkService.getNodeStepPluginDescriptions()
-        def stepTypes = frameworkService.getStepPluginDescriptions()
+        def nodeStepTypes = frameworkService.getNodeStepPluginDescriptions()?.findAll{
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(it.name,'WorkflowNodeStep')
+        }
+        def stepTypes = frameworkService.getStepPluginDescriptions()?.findAll{
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(it.name,'WorkflowStep')
+        }
 
         def strategyPlugins = scheduledExecutionService.getWorkflowStrategyPluginDescriptions()
-
-        render(view:'create',model: [ scheduledExecution:newScheduledExecution, crontab:crontab,params:params,
-                iscopy:true,
-                authorized:scheduledExecutionService.userAuthorizedForJob(request,scheduledExecution,authContext),
-                nodeStepDescriptions: nodeStepTypes,
-                stepDescriptions: stepTypes,
-                                      strategyPlugins: strategyPlugins,
-                notificationPlugins: notificationService.listNotificationPlugins(),
-                orchestratorPlugins: orchestratorPluginService.listDescriptions()])
+        def logFilterPlugins = pluginService.listPlugins(LogFilterPlugin).findAll{k,v->
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(k,'LogFilter')
+        }
+        def globals = frameworkService.getProjectGlobals(scheduledExecution.project).keySet()
+        def fprojects = frameworkService.projectNames(authContext)
+        def notificationPlugins = notificationService.listNotificationPlugins().findAll{k,v->
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(k,'Notification')
+        }
+        render(
+                view: 'create',
+                model: [
+                        scheduledExecution  : newScheduledExecution,
+                        crontab: crontab,
+                        params: params,
+                        iscopy              :true,
+                        authorized          :scheduledExecutionService.userAuthorizedForJob(request,scheduledExecution,authContext),
+                        nodeStepDescriptions: nodeStepTypes,
+                        stepDescriptions    : stepTypes,
+                        strategyPlugins     : strategyPlugins,
+                        notificationPlugins : notificationPlugins,
+                        orchestratorPlugins : orchestratorPluginService.listDescriptions(),
+                        logFilterPlugins    : logFilterPlugins,
+                        projectNames        : fprojects,
+                        globalVars          : globals
+                ]
+        )
 
     }
     /**
@@ -2104,9 +2260,12 @@ class ScheduledExecutionController  extends ControllerBase{
         )) {
             return
         }
-        if (unauthorizedResponse(frameworkService.authorizeProjectExecutionAll(authContext, execution,
-                [AuthConstants.ACTION_READ]), AuthConstants.ACTION_READ, 'Execution',
-                params.executionId)) {
+        if (unauthorizedResponse(
+            frameworkService.authorizeProjectExecutionAny(
+                authContext, execution,
+                [AuthConstants.ACTION_READ, AuthConstants.ACTION_VIEW]
+            ), AuthConstants.ACTION_VIEW, 'Execution',
+            params.executionId)) {
             return
         }
         def props=[:]
@@ -2201,17 +2360,33 @@ class ScheduledExecutionController  extends ControllerBase{
             session.removeAttribute('redoOPTS');
         }
 
-        def nodeStepTypes = frameworkService.getNodeStepPluginDescriptions()
-        def stepTypes = frameworkService.getStepPluginDescriptions()
+        def nodeStepTypes = frameworkService.getNodeStepPluginDescriptions()?.findAll{
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(it.name,'WorkflowNodeStep')
+        }
+        def stepTypes = frameworkService.getStepPluginDescriptions()?.findAll{
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(it.name,'WorkflowStep')
+        }
         log.debug("ScheduledExecutionController: create : now returning model data to view...")
         def strategyPlugins = scheduledExecutionService.getWorkflowStrategyPluginDescriptions()
         def globals=frameworkService.getProjectGlobals(scheduledExecution.project).keySet()
-        return ['scheduledExecution':scheduledExecution,params:params,crontab:[:],
+
+        def timeZones = scheduledExecutionService.getTimeZones()
+        def logFilterPlugins = pluginService.listPlugins(LogFilterPlugin).findAll{k,v->
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(k,'LogFilter')
+        }
+        def fprojects = frameworkService.projectNames(authContext)
+        def notificationPlugins = notificationService.listNotificationPlugins().findAll{k,v->
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(k,'Notification')
+        }
+        return ['scheduledExecution':scheduledExecution, params:params, crontab:[:],
                 nodeStepDescriptions: nodeStepTypes, stepDescriptions: stepTypes,
-                notificationPlugins: notificationService.listNotificationPlugins(),
-                strategyPlugins:strategyPlugins,
-                orchestratorPlugins: orchestratorPluginService.listDescriptions(),
-                globalVars:globals]
+                notificationPlugins : notificationPlugins,
+                strategyPlugins     :strategyPlugins,
+                orchestratorPlugins : orchestratorPluginService.listDescriptions(),
+                logFilterPlugins    : logFilterPlugins,
+                projectNames        : fprojects,
+                globalVars          :globals,
+                timeZones           :timeZones]
     }
 
     private clearEditSession(id='_new'){
@@ -2258,12 +2433,12 @@ class ScheduledExecutionController  extends ControllerBase{
         }.invalidToken{
             results.error=g.message(code:'request.error.invalidtoken.message')
         }
-        return render(contentType:'text/json'){
+        return render(contentType:'application/json'){
             if(results.error){
-                delegate['error']=results.error
+                'error' results.error
             }else{
-                success='true'
-                id=results.id
+                success 'true'
+                id results.id
             }
         }
     }
@@ -2274,7 +2449,7 @@ class ScheduledExecutionController  extends ControllerBase{
         params.jobName='Temporary_Job'
         params.groupPath='adhoc'
 
-        if (runAdhocRequest.asUser && apiService.requireVersion(request,response,ApiRequestFilters.V5)) {
+        if (runAdhocRequest.asUser && apiService.requireVersion(request,response,ApiVersions.V5)) {
             //authorize RunAs User
             if (!frameworkService.authorizeProjectResource(authContext, AuthConstants.RESOURCE_ADHOC,
                     AuthConstants.ACTION_RUNAS, runAdhocRequest.project)) {
@@ -2407,16 +2582,28 @@ class ScheduledExecutionController  extends ControllerBase{
             }
         }
 
-        def nodeStepTypes = frameworkService.getNodeStepPluginDescriptions()
-        def stepTypes = frameworkService.getStepPluginDescriptions()
+        def nodeStepTypes = frameworkService.getNodeStepPluginDescriptions()?.findAll{
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(it.name,'WorkflowNodeStep')
+        }
+        def stepTypes = frameworkService.getStepPluginDescriptions()?.findAll{
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(it.name,'WorkflowStep')
+        }
         def strategyPlugins = scheduledExecutionService.getWorkflowStrategyPluginDescriptions()
+
+        def logFilterPlugins = pluginService.listPlugins(LogFilterPlugin).findAll{k,v->
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(k,'LogFilter')
+        }
+        def notificationPlugins = notificationService.listNotificationPlugins().findAll{k,v->
+            !frameworkService.getPluginControlService(params.project)?.isDisabledPlugin(k,'Notification')
+        }
         render(view: 'create', model: [scheduledExecution: scheduledExecution, params: params,
                                        nodeStepDescriptions: nodeStepTypes,
                 stepDescriptions: stepTypes,
-                notificationPlugins: notificationService.listNotificationPlugins(),
-                   strategyPlugins:strategyPlugins,
+                notificationPlugins: notificationPlugins,
+                strategyPlugins:strategyPlugins,
                 orchestratorPlugins: orchestratorPluginService.listDescriptions(),
-                notificationValidation:params['notificationValidation']
+                notificationValidation:params['notificationValidation'],
+                logFilterPlugins:logFilterPlugins
         ])
         }.invalidToken{
             request.errorCode='request.error.invalidtoken.message'
@@ -2747,14 +2934,15 @@ class ScheduledExecutionController  extends ControllerBase{
      */
     public def runJobInline(RunJobCommand runParams, ExtraCommand extra) {
         def results=[:]
-        withForm{
-            if ([runParams, extra].any { it.hasErrors() }) {
-                request.errors = [runParams, extra].find { it.hasErrors() }.errors
-                return render(contentType: 'application/json') {
-                    delegate.error='invalid'
-                    delegate.message = "Invalid parameters: " + request.errors.allErrors.collect { g.message(error: it) }.join(", ")
-                }
+        if ([runParams, extra].any { it.hasErrors() }) {
+            request.errors = [runParams, extra].find { it.hasErrors() }.errors
+            return render(contentType: 'application/json') {
+                delegate.error 'invalid'
+                delegate.message  "Invalid parameters: " + request.errors.allErrors.collect { g.message(error: it) }.join(", ")
             }
+        }
+        withForm{
+
             results = scheduleJob(null)
 
             if(results.error=='invalid'){
@@ -2766,15 +2954,28 @@ class ScheduledExecutionController  extends ControllerBase{
             results.error='request.error.invalidtoken.message'
             results.message=g.message(code:'request.error.invalidtoken.message')
         }
-        return render(contentType:'application/json'){
-            if(results.failed){
-                delegate.error=results.error
-                delegate.message=results.message
+
+        def link
+        if(params.followdetail){
+            if(params.followdetail=='html'){
+                link =createLink(controller: "execution", action: "renderOutput", id: results.id,
+                        params:[convertContent:'on', loglevels:'on', ansicolor:'on', project:params.project, reload:'true'])
             }else{
-                delegate.success=true
-                delegate.id=results.id
-                delegate.href=createLink(controller: "execution",action: "follow",id: results.id)
-                delegate.follow=(params.follow == 'true')
+                link =createLink(controller: "execution",action: "follow",id: results.id, fragment: params.followdetail)
+            }
+        } else {
+            link = createLink(controller: "execution", action: "follow", id: results.id)
+        }
+        boolean follow_ = params.follow == 'true'
+        return render(contentType:'application/json'){
+            if (results.failed) {
+                error results.error
+                message results.message
+            } else {
+                success true
+                id results.id
+                href link
+                follow follow_
             }
         }
     }
@@ -2783,14 +2984,14 @@ class ScheduledExecutionController  extends ControllerBase{
      */
     public def scheduleJobInline(RunJobCommand runParams, ExtraCommand extra) {
         def results = [:]
-        withForm {
-            if ([runParams, extra].any { it.hasErrors() }) {
-                request.errors = [runParams, extra].find { it.hasErrors() }.errors
-                return render(contentType: 'application/json') {
-                    delegate.error='invalid'
-                    delegate.message = "Invalid parameters: " + request.errors.allErrors.collect { g.message(error: it) }.join(", ")
-                }
+        if ([runParams, extra].any { it.hasErrors() }) {
+            request.errors = [runParams, extra].find { it.hasErrors() }.errors
+            return render(contentType: 'application/json') {
+                delegate.error 'invalid'
+                delegate.message  "Invalid parameters: " + request.errors.allErrors.collect { g.message(error: it) }.join(", ")
             }
+        }
+        withForm {
             results = scheduleJob(params.runAtTime)
 
             if (results.error == 'invalid') {
@@ -2802,15 +3003,27 @@ class ScheduledExecutionController  extends ControllerBase{
             results.error = 'request.error.invalidtoken.message'
             results.message = g.message(code: 'request.error.invalidtoken.message')
         }
+        def link
+        if(params.followdetail){
+            if(params.followdetail=='html'){
+                link =createLink(controller: "execution", action: "renderOutput", id: results.id, params:[convertContent:'on', loglevels:'on', ansicolor:'on', project:params.project, reload:'true'])
+            }else{
+                link =createLink(controller: "execution",action: "follow",id: results.id, fragment: params.followdetail)
+            }
+        }else {
+            link = createLink(controller: "execution", action: "follow", id: results.id)
+        }
+        boolean follow_ = params.follow == 'true'
+
         return render(contentType: 'application/json') {
             if (results.failed) {
-                delegate.error = results.error
-                delegate.message = results.message
+                error results.error
+                message results.message
             } else {
-                delegate.success = true
-                delegate.id = results.id
-                delegate.href = createLink(controller: "execution", action: "follow", id: results.id)
-                delegate.follow = (params.follow == 'true')
+                success true
+                id results.id
+                href link
+                follow follow_
             }
         }
     }
@@ -2853,7 +3066,11 @@ class ScheduledExecutionController  extends ControllerBase{
             }
             return renderErrorView(results)
         } else if (params.follow == 'true') {
-            redirect(controller: "execution", action: "follow", id: results.id)
+            if(params.followdetail=='html'){
+                redirect(controller: "execution", action: "renderOutput", id: results.id, params:[convertContent:'on', loglevels:'on', ansicolor:'on', project:params.project, reload:'true'])
+            }else{
+                redirect(controller: "execution", action: "follow", id: results.id, params:[outdetails: params.followdetail])
+            }
         } else {
             redirect(controller: "scheduledExecution", action: "show", id: params.id)
         }
@@ -3193,7 +3410,7 @@ class ScheduledExecutionController  extends ControllerBase{
      * API: /api/14/project/NAME/jobs/import
      */
     def apiJobsImportv14(){
-        if(!apiService.requireVersion(request,response,ApiRequestFilters.V14)){
+        if(!apiService.requireVersion(request,response,ApiVersions.V14)){
             return
         }
         return apiJobsImport()
@@ -3208,10 +3425,10 @@ class ScheduledExecutionController  extends ControllerBase{
         log.debug("ScheduledExecutionController: upload " + params)
         def fileformat = params.format ?:params.fileformat ?: 'xml'
         def parseresult
-        if(request.api_version >= ApiRequestFilters.V14 && request.format=='xml'){
+        if(request.api_version >= ApiVersions.V14 && request.format=='xml'){
             //xml input
             parseresult = scheduledExecutionService.parseUploadedFile(request.getInputStream(), 'xml')
-        }else if(request.api_version >= ApiRequestFilters.V14 && request.format=='yaml'){
+        }else if(request.api_version >= ApiVersions.V14 && request.format=='yaml'){
             //yaml input
             parseresult = scheduledExecutionService.parseUploadedFile(request.getInputStream(), 'yaml')
         }else if (!apiService.requireParameters(params,response,['xmlBatch'])) {
@@ -3240,13 +3457,13 @@ class ScheduledExecutionController  extends ControllerBase{
                     code: 'api.error.jobs.import.invalid', args: [fileformat,parseresult.error]])
         }
         def jobset = parseresult.jobset
-        if(request.api_version >= ApiRequestFilters.V14){
+        if(request.api_version >= ApiVersions.V14){
             //require project parameter
             if(!apiService.requireParameters(params,response, ['project'])){
                 return
             }
         }
-        if(request.api_version >= ApiRequestFilters.V8){
+        if(request.api_version >= ApiVersions.V8){
             //v8 override project using parameter
             if(params.project){
                 jobset*.project=params.project
@@ -3257,7 +3474,7 @@ class ScheduledExecutionController  extends ControllerBase{
         UserAndRolesAuthContext authContext = frameworkService.getAuthContextForSubject(session.subject)
         String roleList = request.subject.getPrincipals(Group.class).collect {it.name}.join(",")
         def option = params.uuidOption
-        if (request.api_version < ApiRequestFilters.V9) {
+        if (request.api_version < ApiVersions.V9) {
             option = null
         }
         def loadresults = scheduledExecutionService.loadJobs(jobset,params.dupeOption, option, changeinfo, authContext)
@@ -3330,7 +3547,7 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
         //require POST for api v14
-        if (request.method == 'GET' && request.api_version >= ApiRequestFilters.V14) {
+        if (request.method == 'GET' && request.api_version >= ApiVersions.V14) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED)
             return
         }
@@ -3393,7 +3610,7 @@ class ScheduledExecutionController  extends ControllerBase{
                 }
             }
         }
-        if(jobAsUser && apiService.requireVersion(request,response,ApiRequestFilters.V5)) {
+        if(jobAsUser && apiService.requireVersion(request,response,ApiVersions.V5)) {
             // authorize RunAs User
             if (!frameworkService.authorizeProjectJobAll(authContext, scheduledExecution, [AuthConstants.ACTION_RUNAS],
                                                          scheduledExecution.project
@@ -3407,7 +3624,7 @@ class ScheduledExecutionController  extends ControllerBase{
 
         def inputOpts = [:]
 
-        if (request.api_version >= ApiRequestFilters.V18 && jobOptions && jobOptions instanceof Map) {
+        if (request.api_version >= ApiVersions.V18 && jobOptions && jobOptions instanceof Map) {
             jobOptions.each { k, v ->
                 inputOpts['option.' + k] = v
             }
@@ -3431,7 +3648,7 @@ class ScheduledExecutionController  extends ControllerBase{
         }
 
 
-        if (request.api_version < ApiRequestFilters.V14 && !(response.format in ['all','xml'])) {
+        if (request.api_version < ApiVersions.V14 && !(response.format in ['all','xml'])) {
             return apiService.renderErrorXml(response,[
                     status:HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE,
                     code: 'api.error.item.unsupported-format',
@@ -3440,13 +3657,13 @@ class ScheduledExecutionController  extends ControllerBase{
         }
 
         def result
-        if (request.api_version > ApiRequestFilters.V17 && jobRunAtTime) {
+        if (request.api_version > ApiVersions.V17 && jobRunAtTime) {
             inputOpts["runAtTime"] = jobRunAtTime
             result = executionService.scheduleAdHocJob(scheduledExecution,
                         authContext, username, inputOpts)
         }
 
-        if (request.api_version <= ApiRequestFilters.V17 || !jobRunAtTime) {
+        if (request.api_version <= ApiVersions.V17 || !jobRunAtTime) {
             inputOpts['executionType'] = 'user'
             result = executionService.executeJob(scheduledExecution,
                         authContext, username, inputOpts)
@@ -3479,6 +3696,61 @@ class ScheduledExecutionController  extends ControllerBase{
         }
     }
 
+    def apiJobRetry() {
+        if (!apiService.requireVersion(request, response, ApiVersions.V24)) {
+            return
+        }
+        String jobId = params.id
+        String execId = params.executionId
+        String failedOnly = 'true'
+
+        Execution e = Execution.get(execId)
+        if(e?.scheduledExecution?.extid != jobId){
+            e = null
+        }
+        if (!apiService.requireExists(response, e, ['Execution ID', execId])) {
+            return
+        }
+        if (!apiService.requireExists(response, e.failedNodeList, ['Failed node List for execution ID', execId])) {
+            return
+        }
+
+        if (request.format == 'json') {
+            failedOnly = request.JSON.failedNodes?:'true'
+            request.JSON.asUser = request.JSON.asUser?:e.user
+            request.JSON.loglevel = request.JSON.loglevel?:e.loglevel
+            if(request.JSON.options){
+                def map = FrameworkService.parseOptsFromString(e.argString)
+                map.each{k,v ->
+                    if(!request.JSON.options.containsKey(k)){
+                        request.JSON.options.put(k,v)
+                    }
+                }
+            }else if(!request.JSON.argString){
+                request.JSON.argString = request.JSON.argString?:e.argString
+            }
+        }else{
+            failedOnly = params.failedNodes?:'true'
+            params.asUser=params.asUser?:e.user
+            params.loglevel=params.loglevel?:e.loglevel
+            if(params.option){
+                def map = FrameworkService.parseOptsFromString(e.argString)
+                map.each{k,v ->
+                    if(!params.option.containsKey(k)){
+                        params.option.put(k,v)
+                    }
+                }
+            }else if(!params.argString){
+                params.argString = params.argString?:e.argString
+            }
+        }
+        if(failedOnly == 'true'){
+            params.name=e.failedNodeList
+        }
+
+        apiJobRun()
+    }
+
     /**
      * API v19, File upload input for job
      * @return
@@ -3488,7 +3760,7 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
 
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V19)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V19)) {
             return
         }
 
@@ -3654,7 +3926,7 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
 
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V19)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V19)) {
             return
         }
 
@@ -3671,8 +3943,13 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
         AuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject, job.project)
-        if (!frameworkService.authorizeProjectJobAll(authContext, job, [AuthConstants.ACTION_READ], job.project)) {
-            return apiService.renderUnauthorized(response, ['Read', 'Job File Record', params.id])
+        if (!frameworkService.authorizeProjectJobAny(
+            authContext,
+            job,
+            [AuthConstants.ACTION_READ, AuthConstants.ACTION_VIEW],
+            job.project
+        )) {
+            return apiService.renderUnauthorized(response, [AuthConstants.ACTION_VIEW, 'Job File Record', params.id])
         }
 
         respond(new JobFileInfo(jobFileRecord.exportMap()), [formats: ['xml', 'json']])
@@ -3686,7 +3963,7 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
 
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V19)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V19)) {
             return
         }
 
@@ -3699,8 +3976,13 @@ class ScheduledExecutionController  extends ControllerBase{
             return
         }
         AuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject, job.project)
-        if (!frameworkService.authorizeProjectJobAll(authContext, job, [AuthConstants.ACTION_READ], job.project)) {
-            return apiService.renderUnauthorized(response, ['Read', 'Job ID', params.id])
+        if (!frameworkService.authorizeProjectJobAny(
+            authContext,
+            job,
+            [AuthConstants.ACTION_READ, AuthConstants.ACTION_VIEW],
+            job.project
+        )) {
+            return apiService.renderUnauthorized(response, [AuthConstants.ACTION_VIEW, 'Job ID', params.id])
         }
 
         def paging = [offset: 0, max: 20, sort: 'dateCreated', order: 'desc']
@@ -3805,7 +4087,7 @@ class ScheduledExecutionController  extends ControllerBase{
      * API: run simple exec: /api/14/project/PROJECT/run/command
      */
     def apiRunCommandv14(ApiRunAdhocRequest runAdhocRequest){
-        if(!apiService.requireVersion(request,response,ApiRequestFilters.V14)){
+        if(!apiService.requireVersion(request,response,ApiVersions.V14)){
             return
         }
         return apiRunCommand(runAdhocRequest)
@@ -3814,6 +4096,7 @@ class ScheduledExecutionController  extends ControllerBase{
      * API: run simple exec: /api/run/command, version 1
      */
     def apiRunCommand(ApiRunAdhocRequest runAdhocRequest){
+        runAdhocRequest.validate()
         if(runAdhocRequest.hasErrors()){
             return apiService.renderErrorFormat(
                     response,
@@ -3865,7 +4148,7 @@ class ScheduledExecutionController  extends ControllerBase{
      * API: run script: /api/14/project/PROJECT/run/script
      */
     def apiRunScriptv14(ApiRunAdhocRequest runAdhocRequest){
-        if(!apiService.requireVersion(request,response,ApiRequestFilters.V14)){
+        if(!apiService.requireVersion(request,response,ApiVersions.V14)){
             return
         }
         return apiRunScript(runAdhocRequest)
@@ -3917,7 +4200,7 @@ class ScheduledExecutionController  extends ControllerBase{
         ['options','scheduled'].each{params.remove(it)}
 //        def scriptInterpreter = null
 //        def interpreterArgsQuoted = false
-//        if (request.api_version >= ApiRequestFilters.V8) {
+//        if (request.api_version >= ApiVersions.V8) {
 //            scriptInterpreter = params.scriptInterpreter ?: null
 //            interpreterArgsQuoted = Boolean.parseBoolean(params.interpreterArgsQuoted?.toString())
 //        }
@@ -3964,7 +4247,7 @@ class ScheduledExecutionController  extends ControllerBase{
                         code: 'api.error.execution.failed', args: [errors.join(", ")]])
             }
         } else {
-            if (request.api_version < ApiRequestFilters.V14 && !(response.format in ['all','xml'])) {
+            if (request.api_version < ApiVersions.V14 && !(response.format in ['all','xml'])) {
                 return apiService.renderErrorFormat(response,[
                         status:HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE,
                         code: 'api.error.item.unsupported-format',
@@ -4005,7 +4288,7 @@ class ScheduledExecutionController  extends ControllerBase{
      * API: run script: /api/14/project/PROJECT/run/url
      */
     def apiRunScriptUrlv14 (ApiRunAdhocRequest runAdhocRequest){
-        if(!apiService.requireVersion(request,response,ApiRequestFilters.V14)){
+        if(!apiService.requireVersion(request,response,ApiVersions.V14)){
             return
         }
         return apiRunScriptUrl(runAdhocRequest)
@@ -4018,7 +4301,7 @@ class ScheduledExecutionController  extends ControllerBase{
         if (!apiService.requireApi(request, response)) {
             return
         }
-        if (!apiService.requireVersion(request,response,ApiRequestFilters.V4)) {
+        if (!apiService.requireVersion(request,response,ApiVersions.V4)) {
             return
         }
         if(null==runAdhocRequest.project || null==runAdhocRequest.url) {
@@ -4071,11 +4354,11 @@ class ScheduledExecutionController  extends ControllerBase{
         return apiJobExecutionsResult(true)
     }
     /**
-     * API: /api/job/{id}/executions , version 1
+     * non-api interface to job executions results
      */
     def jobExecutionsAjax() {
-        if ('true' != request.getHeader('x-rundeck-ajax')) {
-            return redirect(action: 'jobs', controller: 'menu', params: params)
+        if (requireAjax(action: 'jobs', controller: 'menu', params: params)) {
+            return
         }
         return apiJobExecutionsResult(false)
     }
@@ -4090,11 +4373,11 @@ class ScheduledExecutionController  extends ControllerBase{
         }
         AuthContext authContext = frameworkService.getAuthContextForSubjectAndProject(session.subject,scheduledExecution.project)
 
-        if (!frameworkService.authorizeProjectJobAll(
-                authContext,
-                scheduledExecution,
-                [AuthConstants.ACTION_READ],
-                scheduledExecution.project
+        if (!frameworkService.authorizeProjectJobAny(
+            authContext,
+            scheduledExecution,
+            [AuthConstants.ACTION_READ, AuthConstants.ACTION_VIEW],
+            scheduledExecution.project
         )
         ) {
 
@@ -4108,7 +4391,7 @@ class ScheduledExecutionController  extends ControllerBase{
             )
         }
 
-        if (apiRequest && request.api_version < ApiRequestFilters.V14 && !(response.format in ['all', 'xml'])) {
+        if (apiRequest && request.api_version < ApiVersions.V14 && !(response.format in ['all', 'xml'])) {
             return apiService.renderErrorFormat(response,[
                     status:HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE,
                     code: 'api.error.item.unsupported-format',
@@ -4144,10 +4427,10 @@ class ScheduledExecutionController  extends ControllerBase{
      * API: /api/14/scheduler/takeover
      */
     def apiJobClusterTakeoverSchedule (){
-        if (!apiService.requireVersion(request,response,ApiRequestFilters.V14)) {
+        if (!apiService.requireVersion(request,response,ApiVersions.V14)) {
             return
         }
-        def api17 = request.api_version >= ApiRequestFilters.V17
+        def api17 = request.api_version >= ApiVersions.V17
 
         AuthContext authContext = frameworkService.getAuthContextForSubject(session.subject)
         //test valid project
@@ -4176,7 +4459,7 @@ class ScheduledExecutionController  extends ControllerBase{
                     return apiService.renderSuccessJson(response) {
                         delegate.'message'=("No action performed, cluster mode is not enabled.")
                         success=true
-                        apiversion=ApiRequestFilters.API_CURRENT_VERSION
+                        apiversion=ApiVersions.API_CURRENT_VERSION
                         self=[server:[uuid:frameworkService.getServerUUID()]]
                     }
                 }
@@ -4279,7 +4562,7 @@ class ScheduledExecutionController  extends ControllerBase{
                 }
                 render(contentType: "application/json",text: [
                     success:true,
-                    apiversion:ApiRequestFilters.API_CURRENT_VERSION,
+                    apiversion:ApiVersions.API_CURRENT_VERSION,
                     message: successMessage,
                     self:[server:[uuid:frameworkService.getServerUUID()]],
                     takeoverSchedule:datamap+[

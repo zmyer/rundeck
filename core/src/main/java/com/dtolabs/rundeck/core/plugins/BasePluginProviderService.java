@@ -57,20 +57,10 @@ public class BasePluginProviderService<T> extends BasePluggableProviderService<T
         return createProviderInstanceFromType(clazz, name);
     }
 
-    public boolean isScriptPluggable() {
-        return false;
-    }
-
-    @Override
-    public T createScriptProviderInstance(final ScriptPluginProvider provider)
-            throws PluginException
-    {
-        return null;
-    }
 
 
     public List<Description> listDescriptions() {
-        return DescribableServiceUtil.listDescriptions(this, false);
+        return DescribableServiceUtil.listDescriptions(this, true);
     }
 
     public List<ProviderIdent> listDescribableProviders() {

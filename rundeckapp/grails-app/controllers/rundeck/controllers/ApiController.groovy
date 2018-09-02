@@ -20,6 +20,8 @@ import com.dtolabs.rundeck.app.api.tokens.ListTokens
 import com.dtolabs.rundeck.app.api.tokens.RemoveExpiredTokens
 import com.dtolabs.rundeck.app.api.tokens.Token
 import com.dtolabs.rundeck.core.authorization.AuthContext
+import com.dtolabs.rundeck.core.extension.ApplicationExtension
+import grails.web.mapping.LinkGenerator
 import org.rundeck.util.Sizes
 import rundeck.AuthToken
 
@@ -27,7 +29,7 @@ import javax.servlet.http.HttpServletResponse
 import java.lang.management.ManagementFactory
 
 import com.dtolabs.rundeck.server.authorization.AuthConstants
-import rundeck.filters.ApiRequestFilters
+import com.dtolabs.rundeck.app.api.ApiVersions
 
 /**
  * Contains utility actions for API access and responses
@@ -39,6 +41,7 @@ class ApiController extends ControllerBase{
     def apiService
     def userService
     def configurationService
+    LinkGenerator grailsLinkGenerator
 
     static allowedMethods = [
             apiTokenList         : ['GET'],
@@ -46,7 +49,7 @@ class ApiController extends ControllerBase{
             apiTokenRemoveExpired: ['POST']
     ]
     def invalid = {
-        return apiService.renderErrorXml(response,[code:'api.error.invalid.request',args:[request.forwardURI],status:HttpServletResponse.SC_NOT_FOUND])
+        return apiService.renderErrorFormat(response,[code:'api.error.invalid.request',args:[request.forwardURI],status:HttpServletResponse.SC_NOT_FOUND])
     }
     /**
      * Respond with a 400 error and information about new endpoint location
@@ -64,6 +67,76 @@ class ApiController extends ControllerBase{
                         status: HttpServletResponse.SC_BAD_REQUEST
                 ]
         )
+    }
+
+    /**
+     * /api/25/metrics/* forwards to /metrics/* path if enabled
+     * @param name
+     * @return
+     */
+    def apiMetrics(String name) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V25)) {
+            return
+        }
+
+        AuthContext authContext = frameworkService.getAuthContextForSubject(session.subject)
+        if (!frameworkService.authorizeApplicationResource(
+            authContext,
+            AuthConstants.RESOURCE_TYPE_SYSTEM,
+            AuthConstants.ACTION_READ
+        )) {
+            return apiService.renderErrorFormat(
+                response,
+                [
+                    status: HttpServletResponse.SC_FORBIDDEN,
+                    code  : 'api.error.item.unauthorized',
+                    args  : ['Read System Metrics', 'Rundeck', ""],
+                    format: 'json'
+                ]
+            )
+        }
+        def names = ['metrics', 'ping', 'threads', 'healthcheck']
+        def globalEnabled=configurationService.getBoolean("metrics.enabled", true) &&
+                          configurationService.getBoolean("metrics.api.enabled", true)
+        def enabled =
+            names.collectEntries { mname ->
+                [mname,
+                 globalEnabled && configurationService.getBoolean("metrics.api.${mname}.enabled", true)
+                ]
+            }
+        if (!name) {
+            //list enabled endpoints
+            return respond(
+                [
+                    '_links':
+                        enabled.findAll { it.value }.collectEntries {
+                            [
+                                it.key,
+                                [
+                                    href: grailsLinkGenerator.link(uri: "/api/${ApiVersions.API_CURRENT_VERSION}/metrics/$it.key", absolute: true)
+                                ]
+                            ]
+                        }
+                ]
+                ,
+                formats: ['json']
+            )
+        }
+        if (!enabled[name]) {
+            return apiService.renderErrorFormat(
+                response,
+                [
+                    format: 'json',
+                    code  : 'api.error.invalid.request',
+                    args  : [
+                        request.forwardURI,
+                    ],
+                    status: HttpServletResponse.SC_NOT_FOUND
+                ]
+            )
+        }
+        def servletPath = configurationService.getString('metrics.servletUrlPattern', '/metrics/*')
+        forward(uri: servletPath.replace('/*', "/$name"))
     }
 
     /**
@@ -127,13 +200,13 @@ class ApiController extends ControllerBase{
             return
         }
 
-        if (!apiService.requireParametersFormat(params, response, ['token'])) {
+        if (!apiService.requireParameters(params, response, ['token'])) {
             return
         }
         AuthContext authContext = frameworkService.getAuthContextForSubject(session.subject)
         def adminAuth = apiService.hasTokenAdminAuth(authContext)
 
-        if (request.api_version < ApiRequestFilters.V19 && !adminAuth) {
+        if (request.api_version < ApiVersions.V19 && !adminAuth) {
             return apiService.renderUnauthorized(response, [AuthConstants.ACTION_ADMIN, 'Rundeck', 'User account'])
         }
 
@@ -170,7 +243,7 @@ class ApiController extends ControllerBase{
 
         def adminAuth = apiService.hasTokenAdminAuth(authContext)
 
-        if (request.api_version < ApiRequestFilters.V19 && !adminAuth) {
+        if (request.api_version < ApiVersions.V19 && !adminAuth) {
             return apiService.renderUnauthorized(response, [AuthConstants.ACTION_ADMIN, 'Rundeck', 'User account'])
         }
 
@@ -185,7 +258,7 @@ class ApiController extends ControllerBase{
         } else {
             tokenlist = AuthToken.list()
         }
-        def apiv19 = request.api_version >= ApiRequestFilters.V19
+        def apiv19 = request.api_version >= ApiVersions.V19
         def data = new ListTokens(params.user, !params.user, tokenlist.collect { new Token(it, apiv19) })
 
         respond(data, [formats: ['xml', 'json']])
@@ -205,7 +278,7 @@ class ApiController extends ControllerBase{
         def roles = null
         def tokenDuration = null
         def errors = []
-        boolean tokenRolesV19Enabled = request.api_version >= ApiRequestFilters.V19
+        boolean tokenRolesV19Enabled = request.api_version >= ApiVersions.V19
 
         if (tokenRolesV19Enabled || request.getHeader("Content-Type")) {
             def parsed = apiService.parseJsonXmlWith(request, response, [
@@ -257,13 +330,14 @@ class ApiController extends ControllerBase{
             roles = 'api_token_group'
             tokenDuration = null
         }
+        Set<String> rolesSet=null
         if (roles instanceof String) {
-            roles = AuthToken.parseAuthRoles(roles)
+            rolesSet = AuthToken.parseAuthRoles(roles)
         } else if (roles instanceof Collection) {
-            roles = new HashSet(roles)
+            rolesSet = new HashSet(roles)
         }
-        if (roles == ['*']) {
-            roles = null
+        if (rolesSet.size() == 1 && rolesSet.contains('*')) {
+            rolesSet = null
         }
         AuthToken token
 
@@ -281,7 +355,7 @@ class ApiController extends ControllerBase{
                     authContext,
                     tokenDurationSeconds ?: null,
                     tokenuser,
-                    roles
+                    rolesSet
             )
         } catch (Exception e) {
             return apiService.renderErrorFormat(response, [
@@ -299,7 +373,7 @@ class ApiController extends ControllerBase{
      * /api/19/tokens/$user?/removeExpired
      */
     def apiTokenRemoveExpired() {
-        if (!apiService.requireVersion(request, response, ApiRequestFilters.V19)) {
+        if (!apiService.requireVersion(request, response, ApiVersions.V19)) {
             return
         }
         AuthContext authContext = frameworkService.getAuthContextForSubject(session.subject)
@@ -336,7 +410,7 @@ class ApiController extends ControllerBase{
     /**
      * /api/1/system/info: display stats and info about the server
      */
-    def apiSystemInfo={
+    def apiSystemInfo(){
         if (!apiService.requireApi(request, response)) {
             return
         }
@@ -347,7 +421,7 @@ class ApiController extends ControllerBase{
         }
         Date nowDate=new Date();
         String nodeName= servletContext.getAttribute("FRAMEWORK_NODE")
-        String appVersion= grailsApplication.metadata['app.version']
+        String appVersion= grailsApplication.metadata['info.app.version']
         String sUUID= frameworkService.getServerUUID()
         double load= ManagementFactory.getOperatingSystemMXBean().systemLoadAverage
         int processorsCount= ManagementFactory.getOperatingSystemMXBean().availableProcessors
@@ -363,15 +437,22 @@ class ApiController extends ControllerBase{
         Date startupDate = new Date(nowDate.getTime()-durationTime)
         int threadActiveCount=Thread.activeCount()
         boolean executionModeActive=configurationService.executionModeActive
-        def metricsJsonUrl = createLink(uri: '/metrics/metrics?pretty=true',absolute: true)
-        def metricsThreadDumpUrl = createLink(uri: '/metrics/threads',absolute: true)
-        def metricsHealthcheckUrl = createLink(uri: '/metrics/healthcheck',absolute: true)
-        if (request.api_version < ApiRequestFilters.V14 && !(response.format in ['all','xml'])) {
+
+        def metricsJsonUrl = grailsLinkGenerator.link(uri: "/api/${ApiVersions.API_CURRENT_VERSION}/metrics/metrics?pretty=true", absolute: true)
+        def metricsThreadDumpUrl = grailsLinkGenerator.link(uri: "/api/${ApiVersions.API_CURRENT_VERSION}/metrics/threads", absolute: true)
+        def metricsHealthcheckUrl = grailsLinkGenerator.link(uri: "/api/${ApiVersions.API_CURRENT_VERSION}/metrics/healthcheck", absolute: true)
+        def metricsPingUrl = grailsLinkGenerator.link(uri: "/api/${ApiVersions.API_CURRENT_VERSION}/metrics/ping", absolute: true)
+
+        if (request.api_version < ApiVersions.V14 && !(response.format in ['all','xml'])) {
             return apiService.renderErrorXml(response,[
                     status:HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE,
                     code: 'api.error.item.unsupported-format',
                     args: [response.format]
             ])
+        }
+        def extMeta = [:]
+        ServiceLoader.load(ApplicationExtension).each {
+            extMeta[it.name] = it.infoMetadata
         }
         withFormat{
             xml{
@@ -388,9 +469,10 @@ class ApiController extends ControllerBase{
                         rundeck{
                             version(appVersion)
                             build(grailsApplication.metadata['build.ident'])
+                            buildGit(grailsApplication.metadata['build.core.git.description'])
                             node(nodeName)
                             base(servletContext.getAttribute("RDECK_BASE"))
-                            apiversion(ApiRequestFilters.API_CURRENT_VERSION)
+                            apiversion(ApiVersions.API_CURRENT_VERSION)
                             serverUUID(sUUID)
                         }
                         executions(active:executionModeActive,executionMode:executionModeActive?'active':'passive')
@@ -433,6 +515,18 @@ class ApiController extends ControllerBase{
                         metrics(href:metricsJsonUrl,contentType:'application/json')
                         threadDump(href:metricsThreadDumpUrl,contentType:'text/plain')
                         healthcheck(href:metricsHealthcheckUrl,contentType:'application/json')
+                        ping(href:metricsPingUrl,contentType:'text/plain')
+
+                        if (extMeta) {
+                            extended {
+
+                                def dl = delegate
+                                extMeta.each { k, v ->
+                                    dl."$k"(v)
+                                }
+                            }
+
+                        }
                     }
                 }
 
@@ -449,9 +543,10 @@ class ApiController extends ControllerBase{
                         rundeck={
                             version=(appVersion)
                             build=(grailsApplication.metadata['build.ident'])
+                            buildGit=(grailsApplication.metadata['build.core.git.description'])
                             node=(nodeName)
                             base=(servletContext.getAttribute("RDECK_BASE"))
-                            apiversion=(ApiRequestFilters.API_CURRENT_VERSION)
+                            apiversion=(ApiVersions.API_CURRENT_VERSION)
                             serverUUID=(sUUID)
                         }
                         executions={
@@ -500,6 +595,18 @@ class ApiController extends ControllerBase{
                         metrics=[href:metricsJsonUrl,contentType:'application/json']
                         threadDump=[href:metricsThreadDumpUrl,contentType:'text/plain']
                         healthcheck=[href:metricsHealthcheckUrl,contentType:'application/json']
+                        ping=[href:metricsPingUrl,contentType:'text/plain']
+
+                        if (extMeta) {
+                            extended = {
+
+                                def dl = delegate
+                                extMeta.each { k, v ->
+                                    dl."$k" = v
+                                }
+
+                            }
+                        }
                     }
                 }
             }
